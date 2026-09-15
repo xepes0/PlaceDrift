@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/build-libmihomo-variant.sh'
+      - 'ios-probe/**'
       - '.github/workflows/ios-libmihomo.yml'
   workflow_dispatch:
 
@@ -32,6 +33,24 @@ jobs:
           gomobile init
       - name: Build Libmihomo device XCFramework
         run: bash scripts/build-libmihomo-variant.sh '${{ matrix.variant }}'
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Link XCFramework into transport probe
+        run: |
+          rm -rf ios-probe/Frameworks
+          mkdir -p ios-probe/Frameworks
+          cp -R 'dist/libmihomo-${{ matrix.variant }}/Libmihomo.xcframework' ios-probe/Frameworks/
+          cd ios-probe
+          xcodegen generate
+          xcodebuild \
+            -project WLOCTransportProbe.xcodeproj \
+            -scheme WLOCTransportProbe \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
       - uses: actions/upload-artifact@v4
         with:
           name: libmihomo-ios-${{ matrix.variant }}
