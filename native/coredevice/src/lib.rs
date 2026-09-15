@@ -78,8 +78,12 @@ fn api_surface_probe() {
     let _ = PeerDevice::validate_auth_tag;
     let _ = RemotePairingClient::<RpPairingSocket<Socket>>::new;
     let _ = connect_tls_psk_tunnel_native::<Socket>;
-    let _ = RsdHandshake::new;
     let _ = tcp::adapter::Adapter::new;
+}
+
+#[allow(dead_code)]
+async fn rsd_api_surface_probe(socket: tokio::net::TcpStream) {
+    let _ = RsdHandshake::new(socket).await;
 }
 
 #[cfg(test)]
