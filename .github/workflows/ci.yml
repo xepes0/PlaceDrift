@@ -33,3 +33,24 @@ jobs:
       - name: Test
         working-directory: native/coredevice
         run: cargo test --lib
+
+  mihomo-sing-tun-compat:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sing_tun:
+          - v0.4.21
+          - v0.4.22
+          - v0.4.24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+          cache: false
+      - name: Compile Mihomo 1.19.31 TUN with selected sing-tun
+        env:
+          MIHOMO_VERSION: v1.19.31
+          SING_TUN_VERSION: ${{ matrix.sing_tun }}
+        run: bash scripts/check-mihomo-sing-tun.sh
