@@ -21,7 +21,7 @@ fn _require_rsd<T: RsdService>() {}
 
 fn _type_surface<T>()
 where
-    T: ReadWrite + RpPairingSocketProvider,
+    T: ReadWrite + RpPairingSocketProvider + 'static,
 {
     let _ = core::mem::size_of::<Option<RemotePairingClient<T>>>();
     let _ = core::mem::size_of::<Option<RemoteServerClient<T>>>();
