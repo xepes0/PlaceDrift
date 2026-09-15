@@ -1,0 +1,11 @@
+[package]
+name = "wloc_browser_wasm_probe"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+idevice = { git = "https://github.com/jkcoxson/idevice.git", rev = "2bc58aaea40c9ced0167c8e7b512ee13c34c760f", default-features = false, features = ["wasm", "dvt", "location_simulation", "remote_pairing", "rsd"] }
