@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <title>WLOC mDNS Discovery Test</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 20px; }
+    main { max-width: 760px; margin: auto; }
+    label { display:block; margin:12px 0 4px; font-weight:600; }
+    input,button { width:100%; box-sizing:border-box; padding:11px; font:inherit; }
+    button { margin-top:12px; font-weight:700; }
+    pre { white-space:pre-wrap; word-break:break-word; border:1px solid #8886; padding:12px; border-radius:10px; min-height:180px; }
+    .note { opacity:.75; font-size:.92rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>RemotePairing mDNS Test</h1>
+  <p>This page contains no pairing record. It asks Clash Mi's local VLESS/WebSocket bridge to send a UDP mDNS query for <code>_remotepairing._tcp.local</code>.</p>
+
+  <label for="ws">Bridge WebSocket</label>
+  <input id="ws" value="ws://127.0.0.1:17890/wloc" autocapitalize="off" autocomplete="off" />
+
+  <label for="target">mDNS destination</label>
+  <input id="target" value="10.7.0.1" autocapitalize="off" autocomplete="off" />
+
+  <button id="run">Query _remotepairing._tcp.local</button>
+  <button id="multicast">Try multicast 224.0.0.251</button>
+  <p class="note">Start with 10.7.0.1. If it returns no datagram, try multicast. A useful response should contain PTR/SRV/TXT records and normally an identifier/authTag in TXT.</p>
+
+  <h2>Log</h2>
+  <pre id="log"></pre>
+</main>
+<script>
+(() => {
+  const UUID = "b8842e9c-72fd-4a59-9f8d-5f3b9e9b5d2a";
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const logEl = document.getElementById("log");
+  const log = (msg) => {
+    logEl.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+  };
+
+  function concat(...parts) {
+    const size = parts.reduce((n, p) => n + p.length, 0);
+    const out = new Uint8Array(size);
+    let offset = 0;
+    for (const p of parts) { out.set(p, offset); offset += p.length; }
+    return out;
+  }
+
+  function uuidBytes(uuid) {
+    const hex = uuid.replaceAll('-', '');
+    const out = new Uint8Array(16);
+    if (!/^[0-9a-fA-F]{32}$/.test(hex)) throw new Error('Invalid UUID');
+    for (let i = 0; i < 16; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+    return out;
+  }
+
+  function ipv4(host) {
+    const xs = host.split('.').map(Number);
+    if (xs.length !== 4 || xs.some((x) => !Number.isInteger(x) || x < 0 || x > 255)) {
+      throw new Error('This mDNS probe currently expects an IPv4 destination');
+    }
+    return new Uint8Array(xs);
+  }
+
+  function vlessUDPRequest(host, port, datagram) {
+    const head = new Uint8Array(1 + 16 + 1 + 1 + 2 + 1 + 4);
+    let o = 0;
+    head[o++] = 0;
+    head.set(uuidBytes(UUID), o); o += 16;
+    head[o++] = 0; // addons
+    head[o++] = 2; // UDP
+    head[o++] = (port >> 8) & 0xff;
+    head[o++] = port & 0xff;
+    head[o++] = 1; // IPv4
+    head.set(ipv4(host), o);
+    const framed = new Uint8Array(2 + datagram.length);
+    framed[0] = (datagram.length >> 8) & 0xff;
+    framed[1] = datagram.length & 0xff;
+    framed.set(datagram, 2);
+    return concat(head, framed);
+  }
+
+  function dnsName(name) {
+    const parts = name.replace(/\.$/, '').split('.');
+    const bytes = [];
+    for (const part of parts) {
+      const value = encoder.encode(part);
+      if (!value.length || value.length > 63) throw new Error('Invalid DNS label');
+      bytes.push(value.length, ...value);
+    }
+    bytes.push(0);
+    return new Uint8Array(bytes);
+  }
+
+  function mdnsQuery() {
+    const qname = dnsName('_remotepairing._tcp.local');
+    const head = new Uint8Array(12);
+    head[4] = 0; head[5] = 1; // QDCOUNT=1
+    // PTR + QU bit on class asks for a unicast response where supported.
+    return concat(head, qname, new Uint8Array([0x00, 0x0c, 0x80, 0x01]));
+  }
+
+  function u16(b, o) { return (b[o] << 8) | b[o + 1]; }
+  function u32(b, o) { return ((b[o] * 0x1000000) + (b[o+1] << 16) + (b[o+2] << 8) + b[o+3]) >>> 0; }
+
+  function readName(bytes, start) {
+    const labels = [];
+    let offset = start;
+    let next = start;
+    let jumped = false;
+    const visited = new Set();
+    for (let guard = 0; guard < 128; guard++) {
+      if (offset >= bytes.length) throw new Error('DNS name out of range');
+      const len = bytes[offset];
+      if ((len & 0xc0) === 0xc0) {
+        if (offset + 1 >= bytes.length) throw new Error('DNS pointer truncated');
+        const pointer = ((len & 0x3f) << 8) | bytes[offset + 1];
+        if (!jumped) next = offset + 2;
+        if (visited.has(pointer)) throw new Error('DNS pointer loop');
+        visited.add(pointer);
+        offset = pointer;
+        jumped = true;
+        continue;
+      }
+      if (len === 0) {
+        if (!jumped) next = offset + 1;
+        return { name: labels.join('.'), next };
+      }
+      if (len > 63 || offset + 1 + len > bytes.length) throw new Error('Bad DNS label');
+      labels.push(decoder.decode(bytes.slice(offset + 1, offset + 1 + len)));
+      offset += 1 + len;
+      if (!jumped) next = offset;
+    }
+    throw new Error('DNS name too deep');
+  }
+
+  function parseTXT(bytes, start, end) {
+    const values = [];
+    let o = start;
+    while (o < end) {
+      const len = bytes[o++];
+      if (o + len > end) break;
+      values.push(decoder.decode(bytes.slice(o, o + len)));
+      o += len;
+    }
+    return values;
+  }
+
+  function parseDNS(bytes) {
+    if (bytes.length < 12) throw new Error('DNS packet too short');
+    const qd = u16(bytes, 4), an = u16(bytes, 6), ns = u16(bytes, 8), ar = u16(bytes, 10);
+    let o = 12;
+    for (let i = 0; i < qd; i++) {
+      const n = readName(bytes, o); o = n.next + 4;
+      if (o > bytes.length) throw new Error('Question truncated');
+    }
+    const records = [];
+    const total = an + ns + ar;
+    for (let i = 0; i < total; i++) {
+      const n = readName(bytes, o); o = n.next;
+      if (o + 10 > bytes.length) throw new Error('Record header truncated');
+      const type = u16(bytes, o); const klass = u16(bytes, o + 2); const ttl = u32(bytes, o + 4); const len = u16(bytes, o + 8);
+      const rstart = o + 10, rend = rstart + len;
+      if (rend > bytes.length) throw new Error('Record data truncated');
+      const rec = { name: n.name, type, klass, ttl };
+      if (type === 12) {
+        rec.ptr = readName(bytes, rstart).name;
+      } else if (type === 33 && len >= 6) {
+        rec.port = u16(bytes, rstart + 4);
+        rec.target = readName(bytes, rstart + 6).name;
+      } else if (type === 16) {
+        rec.txt = parseTXT(bytes, rstart, rend);
+      }
+      records.push(rec);
+      o = rend;
+    }
+    return records;
+  }
+
+  function run(target) {
+    logEl.textContent = '';
+    const wsURL = document.getElementById('ws').value.trim();
+    let firstResponse = true;
+    let stream = new Uint8Array(0);
+    let receivedDatagram = false;
+    const timer = setTimeout(() => {
+      if (!receivedDatagram) log('TIMEOUT: no UDP datagram received in 10 seconds');
+    }, 10000);
+
+    try {
+      log(`Opening ${wsURL}`);
+      log(`mDNS target ${target}:5353`);
+      const ws = new WebSocket(wsURL);
+      ws.binaryType = 'arraybuffer';
+      ws.onopen = () => {
+        log('WebSocket OPEN');
+        const packet = mdnsQuery();
+        ws.send(vlessUDPRequest(target, 5353, packet));
+        log(`Sent ${packet.length}-byte PTR query for _remotepairing._tcp.local`);
+      };
+      ws.onmessage = (event) => {
+        let chunk = new Uint8Array(event.data);
+        if (firstResponse) {
+          stream = concat(stream, chunk);
+          if (stream.length < 2) return;
+          const headerLength = 2 + stream[1];
+          if (stream.length < headerLength) return;
+          if (stream[0] !== 0) { log(`Unexpected VLESS version ${stream[0]}`); ws.close(); return; }
+          log(`VLESS response header OK (addons=${stream[1]})`);
+          chunk = stream.slice(headerLength);
+          stream = new Uint8Array(0);
+          firstResponse = false;
+        }
+        stream = concat(stream, chunk);
+        while (stream.length >= 2) {
+          const length = u16(stream, 0);
+          if (stream.length < 2 + length) break;
+          const datagram = stream.slice(2, 2 + length);
+          stream = stream.slice(2 + length);
+          receivedDatagram = true;
+          log(`Received UDP datagram: ${datagram.length} bytes`);
+          try {
+            const records = parseDNS(datagram);
+            for (const r of records) {
+              if (r.ptr) log(`PTR ${r.name} -> ${r.ptr}`);
+              else if (r.port) log(`SRV ${r.name} port=${r.port} target=${r.target}`);
+              else if (r.txt) log(`TXT ${r.name} ${r.txt.join(' | ')}`);
+            }
+            const interesting = records.filter((r) =>
+              (r.name || '').includes('_remotepairing._tcp.local') ||
+              (r.ptr || '').includes('_remotepairing._tcp.local')
+            );
+            if (interesting.length) log('REMOTEPAIRING DISCOVERY DATA FOUND');
+          } catch (error) {
+            log('DNS parse error: ' + (error?.message || String(error)));
+          }
+        }
+      };
+      ws.onerror = () => log('WebSocket ERROR');
+      ws.onclose = (event) => { clearTimeout(timer); log(`WebSocket CLOSED code=${event.code}`); };
+    } catch (error) {
+      clearTimeout(timer);
+      log('EXCEPTION: ' + (error?.message || String(error)));
+    }
+  }
+
+  document.getElementById('run').onclick = () => run(document.getElementById('target').value.trim());
+  document.getElementById('multicast').onclick = () => run('224.0.0.251');
+})();
+</script>
+</body>
+</html>
