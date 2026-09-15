@@ -34,6 +34,20 @@ jobs:
         working-directory: native/coredevice
         run: cargo test --lib
 
+  ios-coredevice-probe:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build unsigned iOS probe
+        run: bash scripts/build-ios-coredevice-probe.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WLOCCoreDeviceProbe-unsigned
+          path: .build/artifacts/WLOCCoreDeviceProbe-unsigned.ipa
+          if-no-files-found: error
+
   mihomo-sing-tun-compat:
     runs-on: ubuntu-latest
     strategy:
