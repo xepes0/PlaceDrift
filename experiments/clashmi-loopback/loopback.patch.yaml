@@ -1,0 +1,9 @@
+# Clash Mi custom YAML overwrite; import under Core settings > Overwrite.
+# This fragment is NOT a standalone subscription. See README.md.
+tun:
+  enable: true
+  stack: system
+  auto-route: true
+  auto-detect-interface: true
+  loopback-address:
+    - 10.7.0.1

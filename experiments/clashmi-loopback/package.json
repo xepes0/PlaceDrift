@@ -1,0 +1,11 @@
+{
+  "name": "wloc-clashmi-loopback-poc",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node check.mjs"
+  },
+  "devDependencies": { "yaml": "2.8.1" },
+  "engines": { "node": ">=22" }
+}
