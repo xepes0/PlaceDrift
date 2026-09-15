@@ -31,8 +31,12 @@ cd "$WORKROOT/proxycat"
 
 git submodule update --init --recursive mihomo
 
-git -C mihomo fetch --depth 1 origin "refs/tags/${MIHOMO_REF}:refs/tags/${MIHOMO_REF}" || true
-git -C mihomo checkout --detach "$MIHOMO_REF"
+# proxycat tracks its own Mihomo fork as the submodule origin. For the A/B
+# experiment we intentionally pin the public MetaCubeX release tag instead.
+echo "==> Pin upstream Mihomo: $MIHOMO_REF"
+git -C mihomo fetch --depth 1 https://github.com/MetaCubeX/mihomo.git \
+  "refs/tags/${MIHOMO_REF}:refs/tags/${MIHOMO_REF}"
+git -C mihomo checkout --detach "refs/tags/${MIHOMO_REF}"
 
 echo "==> Override sing-tun: $SING_TUN_VERSION"
 cd libmihomo
