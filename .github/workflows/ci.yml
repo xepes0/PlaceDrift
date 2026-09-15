@@ -10,6 +10,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  browser-transport:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Node version
+        run: node --version
+      - name: Validate Clash Mi override and browser transport page
+        run: node scripts/check-browser-wasm-override.mjs
+
   swift-loopback:
     runs-on: macos-15
     steps:
