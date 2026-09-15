@@ -1,0 +1,22 @@
+# Clash Mi custom override for the browser transport experiment.
+# Intended for Clash Mi 1.0.28.1406 / Mihomo 1.19.29.
+# This keeps the existing profile and only overrides TUN/listener fields.
+
+tun:
+  enable: true
+  stack: mixed
+  auto-route: true
+  auto-detect-interface: true
+  loopback-address:
+    - 10.7.0.1
+
+listeners:
+  - name: wloc-browser-bridge
+    type: vless
+    listen: 127.0.0.1
+    port: 17890
+    users:
+      - username: wloc-browser
+        uuid: b8842e9c-72fd-4a59-9f8d-5f3b9e9b5d2a
+    ws-path: /wloc
+    allow-insecure: true
