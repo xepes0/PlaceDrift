@@ -4,6 +4,9 @@ struct ContentView: View {
     @EnvironmentObject private var probe: CoreDeviceProbeController
     @State private var latitude = "34.052235"
     @State private var longitude = "-118.243683"
+    @State private var showingPairingExporter = false
+    @State private var pairingDocument = PairingRecordDocument()
+    @State private var exportError: String?
 
     var body: some View {
         NavigationStack {
@@ -44,6 +47,21 @@ struct ContentView: View {
                         .font(.footnote)
 
                     if probe.hasPairingRecord {
+                        Button("Export pairing record for Browser PoC") {
+                            if let data = PairingRecordExporter.load(), !data.isEmpty {
+                                pairingDocument = PairingRecordDocument(data: data)
+                                exportError = nil
+                                showingPairingExporter = true
+                            } else {
+                                exportError = "Could not read the saved pairing record from Keychain."
+                            }
+                        }
+                        .disabled(probe.isPairing || probe.isLocationActive)
+
+                        Text("Treat this exported file as a device credential. Save it locally and do not upload it to GitHub, Cloudflare, chat, or any public service.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+
                         Button("Delete saved pairing", role: .destructive) {
                             probe.resetPairing()
                         }
@@ -73,6 +91,12 @@ struct ContentView: View {
                     }
                 }
 
+                if let exportError {
+                    Section("Pairing export") {
+                        Text(exportError)
+                    }
+                }
+
                 if let error = probe.lastError {
                     Section("Diagnostic") {
                         Text(error)
@@ -86,6 +110,16 @@ struct ContentView: View {
             }
             .navigationTitle("WLOC CoreDevice Probe")
             .onAppear { probe.refreshPairingState() }
+            .fileExporter(
+                isPresented: $showingPairingExporter,
+                document: pairingDocument,
+                contentType: .data,
+                defaultFilename: "WLOC-RPPairing.rppairing"
+            ) { result in
+                if case .failure(let error) = result {
+                    exportError = error.localizedDescription
+                }
+            }
         }
     }
 }
