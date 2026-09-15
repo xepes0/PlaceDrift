@@ -8,10 +8,13 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .library(name: "LoopbackCore", targets: ["LoopbackCore"])
+        .library(name: "LoopbackCore", targets: ["LoopbackCore"]),
+        .library(name: "ClashMiBridgeProtocol", targets: ["ClashMiBridgeProtocol"])
     ],
     targets: [
         .target(name: "LoopbackCore"),
-        .testTarget(name: "LoopbackCoreTests", dependencies: ["LoopbackCore"])
+        .testTarget(name: "LoopbackCoreTests", dependencies: ["LoopbackCore"]),
+        .target(name: "ClashMiBridgeProtocol"),
+        .testTarget(name: "ClashMiBridgeProtocolTests", dependencies: ["ClashMiBridgeProtocol"])
     ]
 )
