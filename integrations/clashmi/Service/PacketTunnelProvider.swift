@@ -1,5 +1,6 @@
 import Foundation
 import LibVpnCore
+import NetworkExtension
 
 class PacketTunnelProvider: ExtensionProvider {
     private let wlocBridge = WLOCTunnelBridge()
