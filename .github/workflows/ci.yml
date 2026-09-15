@@ -20,3 +20,16 @@ jobs:
         run: swift build -v
       - name: Test
         run: swift test -v
+
+  rust-coredevice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust version
+        run: rustc --version
+      - name: Check
+        working-directory: native/coredevice
+        run: cargo check --locked || cargo check
+      - name: Test
+        working-directory: native/coredevice
+        run: cargo test --lib
