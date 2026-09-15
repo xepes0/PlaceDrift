@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <title>WLOC Browser Transport Test</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 20px; }
+    main { max-width: 760px; margin: auto; }
+    label { display: block; margin: 12px 0 4px; font-weight: 600; }
+    input, textarea, button { width: 100%; box-sizing: border-box; font: inherit; }
+    input, textarea { padding: 10px; }
+    textarea { min-height: 100px; }
+    button { margin-top: 14px; padding: 12px; font-weight: 700; }
+    pre { white-space: pre-wrap; word-break: break-word; border: 1px solid #8886; padding: 12px; border-radius: 10px; min-height: 120px; }
+    .note { opacity: .75; font-size: .92rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>WLOC Browser Transport Test</h1>
+  <p>This page contains no pairing record support. It only verifies Safari → Clash Mi → VLESS/WebSocket → TCP.</p>
+
+  <label for="ws">Bridge WebSocket</label>
+  <input id="ws" value="ws://127.0.0.1:17890/wloc" autocapitalize="off" autocomplete="off" />
+
+  <label for="host">TCP destination</label>
+  <input id="host" value="example.com" autocapitalize="off" autocomplete="off" />
+
+  <label for="port">Port</label>
+  <input id="port" type="number" value="80" min="1" max="65535" />
+
+  <label for="payload">Initial TCP payload</label>
+  <textarea id="payload">GET / HTTP/1.0\r\nHost: example.com\r\nConnection: close\r\n\r\n</textarea>
+
+  <button id="run">Run TCP smoke test</button>
+  <p class="note">Expected result: WebSocket opens, VLESS responds, and an HTTP response from example.com appears below. If Safari blocks ws:// from HTTPS, the log should make that obvious.</p>
+
+  <h2>Log</h2>
+  <pre id="log"></pre>
+</main>
+<script>
+(() => {
+  const UUID = "b8842e9c-72fd-4a59-9f8d-5f3b9e9b5d2a";
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const logEl = document.getElementById("log");
+  const log = (msg) => {
+    const stamp = new Date().toLocaleTimeString();
+    logEl.textContent += `[${stamp}] ${msg}\n`;
+  };
+
+  function uuidBytes(uuid) {
+    const hex = uuid.replaceAll("-", "");
+    if (!/^[0-9a-fA-F]{32}$/.test(hex)) throw new Error("Invalid UUID");
+    const out = new Uint8Array(16);
+    for (let i = 0; i < 16; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+    return out;
+  }
+
+  function ipv4Bytes(host) {
+    const parts = host.split(".");
+    if (parts.length !== 4) return null;
+    const nums = parts.map((x) => Number(x));
+    if (nums.some((x) => !Number.isInteger(x) || x < 0 || x > 255)) return null;
+    return new Uint8Array(nums);
+  }
+
+  function encodeAddress(host) {
+    const ip = ipv4Bytes(host);
+    if (ip) return { type: 1, bytes: ip };
+    const bytes = encoder.encode(host);
+    if (!bytes.length || bytes.length > 255) throw new Error("Domain length invalid");
+    const value = new Uint8Array(1 + bytes.length);
+    value[0] = bytes.length;
+    value.set(bytes, 1);
+    return { type: 2, bytes: value };
+  }
+
+  function concat(...parts) {
+    const len = parts.reduce((sum, x) => sum + x.length, 0);
+    const out = new Uint8Array(len);
+    let offset = 0;
+    for (const part of parts) { out.set(part, offset); offset += part.length; }
+    return out;
+  }
+
+  function makeRequest(host, port, payload) {
+    const address = encodeAddress(host);
+    const head = new Uint8Array(1 + 16 + 1 + 1 + 2 + 1);
+    let o = 0;
+    head[o++] = 0; // VLESS protocol version
+    head.set(uuidBytes(UUID), o); o += 16;
+    head[o++] = 0; // addons length
+    head[o++] = 1; // TCP
+    head[o++] = (port >> 8) & 0xff;
+    head[o++] = port & 0xff;
+    head[o++] = address.type;
+    return concat(head, address.bytes, payload);
+  }
+
+  document.getElementById("run").addEventListener("click", () => {
+    logEl.textContent = "";
+    const wsURL = document.getElementById("ws").value.trim();
+    const host = document.getElementById("host").value.trim();
+    const port = Number(document.getElementById("port").value);
+    const payloadText = document.getElementById("payload").value
+      .replaceAll("\\r", "\r")
+      .replaceAll("\\n", "\n");
+    const payload = encoder.encode(payloadText);
+
+    if (!host || !Number.isInteger(port) || port < 1 || port > 65535) {
+      log("Invalid destination");
+      return;
+    }
+
+    let responseHeaderDone = false;
+    let pending = new Uint8Array(0);
+    let finished = false;
+    const timer = setTimeout(() => {
+      if (!finished) log("TIMEOUT: no complete response within 12 seconds");
+    }, 12000);
+
+    try {
+      log(`Page origin: ${location.origin}`);
+      log(`Opening ${wsURL}`);
+      const ws = new WebSocket(wsURL);
+      ws.binaryType = "arraybuffer";
+
+      ws.onopen = () => {
+        log("WebSocket OPEN");
+        const request = makeRequest(host, port, payload);
+        log(`Sending VLESS TCP request to ${host}:${port} (${request.length} bytes)`);
+        ws.send(request);
+      };
+
+      ws.onmessage = (event) => {
+        const chunk = new Uint8Array(event.data);
+        if (!responseHeaderDone) {
+          pending = concat(pending, chunk);
+          if (pending.length < 2) return;
+          const addonLength = pending[1];
+          const headerLength = 2 + addonLength;
+          if (pending.length < headerLength) return;
+          if (pending[0] !== 0) {
+            log(`Unexpected VLESS response version: ${pending[0]}`);
+            ws.close();
+            return;
+          }
+          responseHeaderDone = true;
+          log(`VLESS response header OK (addons=${addonLength})`);
+          const rest = pending.slice(headerLength);
+          pending = new Uint8Array(0);
+          if (rest.length) log("TCP DATA:\n" + decoder.decode(rest));
+          return;
+        }
+        if (chunk.length) log("TCP DATA:\n" + decoder.decode(chunk));
+      };
+
+      ws.onerror = () => log("WebSocket ERROR (Safari policy, listener unavailable, or configuration mismatch)");
+      ws.onclose = (event) => {
+        finished = true;
+        clearTimeout(timer);
+        log(`WebSocket CLOSED code=${event.code} reason=${event.reason || "(none)"}`);
+      };
+    } catch (error) {
+      finished = true;
+      clearTimeout(timer);
+      log("EXCEPTION: " + (error?.message || String(error)));
+    }
+  });
+})();
+</script>
+</body>
+</html>
