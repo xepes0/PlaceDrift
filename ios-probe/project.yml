@@ -1,4 +1,4 @@
-name: WLOCTransportProbe
+name: WLOCCoreDeviceProbe
 options:
   bundleIdPrefix: com.xepes.wlocprobe
   deploymentTarget:
@@ -13,42 +13,22 @@ settings:
     TARGETED_DEVICE_FAMILY: "1,2"
 
 targets:
-  WLOCTransportProbe:
+  WLOCCoreDeviceProbe:
     type: application
     platform: iOS
     sources:
       - path: ProbeApp
-    dependencies:
-      - target: ProbeTunnel
-        embed: true
-        codeSign: true
     settings:
       base:
-        CODE_SIGN_ENTITLEMENTS: ProbeApp/ProbeApp.entitlements
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: "WLOC Transport Probe"
-        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
-        INFOPLIST_KEY_LSRequiresIPhoneOS: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        PRODUCT_BUNDLE_IDENTIFIER: com.xepes.wlocprobe.app
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: ProbeApp/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.xepes.wlocprobe.coredevice
+        PRODUCT_NAME: WLOCCoreDeviceProbe
+        SWIFT_OBJC_BRIDGING_HEADER: ProbeApp/WLOCProbe-Bridging-Header.h
+        HEADER_SEARCH_PATHS: "$(SRCROOT)/Vendor/include"
+        LIBRARY_SEARCH_PATHS: "$(SRCROOT)/Vendor"
+        OTHER_LDFLAGS: "$(inherited) -lwloc_coredevice_engine"
+        SWIFT_STRICT_CONCURRENCY: minimal
         SWIFT_VERSION: "5.0"
     scheme:
       gatherCoverageData: false
-
-  ProbeTunnel:
-    type: app-extension
-    platform: iOS
-    sources:
-      - path: ProbeTunnel
-    dependencies:
-      - framework: Frameworks/Libmihomo.xcframework
-        embed: false
-      - sdk: libresolv.tbd
-    settings:
-      base:
-        CODE_SIGN_ENTITLEMENTS: ProbeTunnel/ProbeTunnel.entitlements
-        GENERATE_INFOPLIST_FILE: NO
-        INFOPLIST_FILE: ProbeTunnel/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.xepes.wlocprobe.app.tunnel
-        SWIFT_STRICT_CONCURRENCY: minimal
-        SWIFT_VERSION: "5.0"
