@@ -19,6 +19,16 @@ jobs:
       - name: Validate Clash Mi override and browser transport page
         run: node scripts/check-browser-wasm-override.mjs
 
+  wasm-coredevice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Check idevice CoreDevice WASM surface
+        working-directory: native/browser-wasm-probe
+        run: cargo check --target wasm32-unknown-unknown
+
   swift-loopback:
     runs-on: macos-15
     steps:
