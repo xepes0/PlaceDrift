@@ -15,7 +15,7 @@ use idevice::remote_pairing::{
     RpPairingSocket, connect_tls_psk_tunnel_native,
 };
 use idevice::rsd::RsdHandshake;
-use idevice::tcp;
+use idevice::{RsdService, tcp};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::{Instant, sleep, timeout};
 
