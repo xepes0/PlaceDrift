@@ -1,14 +1,13 @@
 import SwiftUI
 
 @main
-struct WLOCTransportProbeApp: App {
-    @StateObject private var vpn = ProbeVPNController()
+struct WLOCCoreDeviceProbeApp: App {
+    @StateObject private var probe = CoreDeviceProbeController()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(vpn)
-                .task { await vpn.reload() }
+                .environmentObject(probe)
         }
     }
 }
