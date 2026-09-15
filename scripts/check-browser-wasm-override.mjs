@@ -4,6 +4,7 @@ import vm from 'node:vm';
 
 const overridePath = 'experiments/browser-wasm/clashmi-wloc-bridge.js';
 const htmlPath = 'experiments/browser-wasm/transport-test.html';
+const mdnsPath = 'experiments/browser-wasm/mdns-test.html';
 
 const source = fs.readFileSync(overridePath, 'utf8');
 const context = {};
@@ -44,4 +45,11 @@ assert.match(html, /ws:\/\/127\.0\.0\.1:17890\/wloc/);
 assert.match(html, /b8842e9c-72fd-4a59-9f8d-5f3b9e9b5d2a/);
 assert.match(html, /example\.com/);
 
-console.log('browser-wasm override and transport smoke-test assets validated');
+const mdns = fs.readFileSync(mdnsPath, 'utf8');
+assert.match(mdns, /_remotepairing\._tcp\.local/);
+assert.match(mdns, /10\.7\.0\.1/);
+assert.match(mdns, /224\.0\.0\.251/);
+assert.match(mdns, /head\[o\+\+\] = 2; \/\/ UDP/);
+assert.match(mdns, /REMOTEPAIRING DISCOVERY DATA FOUND/);
+
+console.log('browser-wasm override, TCP transport, and mDNS test assets validated');
