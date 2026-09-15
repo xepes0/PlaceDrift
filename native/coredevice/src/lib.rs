@@ -63,19 +63,21 @@ pub extern "C" fn wloc_coredevice_validate_coordinates(latitude: f64, longitude:
 /// Compile-time API surface probe.
 ///
 /// The real session implementation will be added after the transport PoC is
-/// stable. Keeping these imports in the crate makes CI fail immediately if the
-/// pinned `idevice` revision no longer exposes the exact CoreDevice pieces we
-/// intend to use.
+/// stable. Keeping these concrete type references in the crate makes CI fail
+/// immediately if the pinned `idevice` revision no longer exposes the exact
+/// CoreDevice pieces we intend to use.
 #[allow(dead_code)]
 fn api_surface_probe() {
-    let _ = core::mem::size_of::<Option<LocationSimulationClient<'static>>>();
-    let _ = core::mem::size_of::<Option<RemoteServerClient>>();
+    type Socket = tokio::net::TcpStream;
+
+    let _ = core::mem::size_of::<Option<LocationSimulationClient<'static, Socket>>>();
+    let _ = core::mem::size_of::<Option<RemoteServerClient<Socket>>>();
     let _ = core::mem::size_of::<Option<RpPairingFile>>();
-    let _ = core::mem::size_of::<Option<RpPairingSocket<tokio::net::TcpStream>>>();
+    let _ = core::mem::size_of::<Option<RpPairingSocket<Socket>>>();
 
     let _ = PeerDevice::validate_auth_tag;
-    let _ = RemotePairingClient::<RpPairingSocket<tokio::net::TcpStream>>::new;
-    let _ = connect_tls_psk_tunnel_native::<tokio::net::TcpStream>;
+    let _ = RemotePairingClient::<RpPairingSocket<Socket>>::new;
+    let _ = connect_tls_psk_tunnel_native::<Socket>;
     let _ = RsdHandshake::new;
     let _ = tcp::adapter::Adapter::new;
 }
