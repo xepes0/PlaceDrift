@@ -38,14 +38,12 @@ func point(_ x: CGFloat, _ y: CGFloat, _ s: CGFloat) -> NSPoint {
 }
 
 func renderIcon(size: Int, path: String) throws {
-    let width = size
-    let height = size
     guard let rep = NSBitmapImageRep(
         bitmapDataPlanes: nil,
-        pixelsWide: width,
-        pixelsHigh: height,
+        pixelsWide: size,
+        pixelsHigh: size,
         bitsPerSample: 8,
-        samplesPerPixel: 4,
+        samplesPerPixel: 3,
         hasAlpha: false,
         isPlanar: false,
         colorSpaceName: .deviceRGB,
@@ -55,7 +53,7 @@ func renderIcon(size: Int, path: String) throws {
         throw NSError(domain: "PlaceDriftIcon", code: 1)
     }
 
-    rep.size = NSSize(width: width, height: height)
+    rep.size = NSSize(width: size, height: size)
     guard let context = NSGraphicsContext(bitmapImageRep: rep) else {
         throw NSError(domain: "PlaceDriftIcon", code: 2)
     }
@@ -74,12 +72,18 @@ func renderIcon(size: Int, path: String) throws {
     background.draw(in: rect, angle: -35)
 
     // Soft orbital glow behind the pin.
-    let glowRect = NSRect(x: 180*s, y: 190*s, width: 664*s, height: 664*s)
     let glow = NSGradient(colors: [
         NSColor(calibratedRed: 0.11, green: 0.84, blue: 0.92, alpha: 0.30),
         NSColor(calibratedRed: 0.10, green: 0.45, blue: 0.95, alpha: 0.0)
     ])!
-    glow.draw(in: NSBezierPath(ovalIn: glowRect), relativeCenterPosition: NSPoint(x: 0, y: 0))
+    let glowCenter = point(535, 515, s)
+    glow.draw(
+        fromCenter: glowCenter,
+        radius: 0,
+        toCenter: glowCenter,
+        radius: 360 * s,
+        options: []
+    )
 
     // Drift trails.
     let trailColor = NSColor(calibratedRed: 0.20, green: 0.86, blue: 0.96, alpha: 0.95)
