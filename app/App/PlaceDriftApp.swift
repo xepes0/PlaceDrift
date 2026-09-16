@@ -7,9 +7,6 @@ struct PlaceDriftApp: App {
     var body: some Scene {
         WindowGroup {
             PlaceDriftAppView(controller: controller)
-                .onAppear {
-                    PlaceDriftShortcutRouter.attach(controller)
-                }
                 .onOpenURL { url in
                     PlaceDriftDeepLinkHandler.handle(url, controller: controller)
                 }
