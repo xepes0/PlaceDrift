@@ -33,6 +33,10 @@
 "LocationSimulation active. Switch to Maps now to verify." = "模拟定位已启用。现在可切换到地图验证。";
 "LocationSimulation cleared" = "模拟定位已清除";
 
+"RemotePairing connection timed out." = "RemotePairing 连接超时。请确保当前 TUN 已启用 loopback-address 10.7.0.1，并保持支持该功能的 TUN/代理应用处于连接状态。";
+"Could not reach RemotePairing through 10.7.0.1." = "无法通过 10.7.0.1 连接 RemotePairing。请确保当前 TUN 已启用 loopback-address 10.7.0.1，并保持支持该功能的 TUN/代理应用处于连接状态。";
+"No matching RemotePairing service was found. Keep Clash Mi connected with loopback-address 10.7.0.1." = "未找到匹配的 RemotePairing 服务。请确保当前 TUN 已启用 loopback-address 10.7.0.1，并保持支持该功能的 TUN/代理应用处于连接状态。";
+
 "Set PlaceDrift Location" = "设置 PlaceDrift 位置";
 "Send a Shortcuts location directly to PlaceDrift and start LocationSimulation." = "将快捷指令中的“位置”直接发送到 PlaceDrift，并启动模拟定位。";
 "Set PlaceDrift Coordinates" = "设置 PlaceDrift 坐标";
