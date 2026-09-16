@@ -87,7 +87,7 @@ pub unsafe extern "C" fn placedrift_pairing_session_run(s:*mut PairingSession,re
 }
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn placedrift_pairing_result_destroy(p:*mut PairingResult){
-    let Some(r)=unsafe{p.as_mut()}else{return};
+    let Some(r)=(unsafe{p.as_mut()})else{return};
     for v in [r.error_message,r.device_name,r.device_model]{if !v.is_null(){unsafe{drop(CString::from_raw(v))}}}
     unsafe{drop_bytes(r.pairing_record,r.pairing_record_length)};*r=PairingResult::empty();
 }
@@ -111,7 +111,7 @@ pub extern "C" fn placedrift_location_session_create()->*mut LocationSession{
 }
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn placedrift_location_session_update(p:*mut LocationSession,lat:f64,lon:f64)->i32{
-    let Some(s)=unsafe{p.as_ref()}else{return 2};let Ok(v)=Coordinates::new(lat,lon)else{return 1};let Ok(mut c)=s.coordinates.lock()else{return 2};*c=v;0
+    let Some(s)=(unsafe{p.as_ref()})else{return 2};let Ok(v)=Coordinates::new(lat,lon)else{return 1};let Ok(mut c)=s.coordinates.lock()else{return 2};*c=v;0
 }
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn placedrift_location_session_cancel(p:*mut LocationSession){if let Some(s)=unsafe{p.as_ref()}{s.cancelled.store(true,Ordering::Release)}}
@@ -133,7 +133,7 @@ pub unsafe extern "C" fn placedrift_location_session_run(
     match r{Ok(Ok(()))=>0,Ok(Err(e))=>{unsafe{(*out).failure_stage=e.stage as u32;(*out).error_message=own_string(e.message)};1},Err(_)=>{unsafe{(*out).failure_stage=FailureStage::Internal as u32;(*out).error_message=own_string("Location engine stopped unexpectedly.")};1}}
 }
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn placedrift_location_result_destroy(p:*mut LocationResult){let Some(r)=unsafe{p.as_mut()}else{return};if !r.error_message.is_null(){unsafe{drop(CString::from_raw(r.error_message))}}*r=LocationResult::empty()}
+pub unsafe extern "C" fn placedrift_location_result_destroy(p:*mut LocationResult){let Some(r)=(unsafe{p.as_mut()})else{return};if !r.error_message.is_null(){unsafe{drop(CString::from_raw(r.error_message))}}*r=LocationResult::empty()}
 
 async fn run_pairing(cb:Callbacks,cancel:Arc<AtomicBool>)->Result<CompletedPairing,StageError>{
     check(&cancel)?;
