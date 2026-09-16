@@ -1,6 +1,8 @@
 #!/usr/bin/env swift
-import AppKit
+import CoreGraphics
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 
 let arguments = CommandLine.arguments
 let outputDirectory = arguments.count > 1 ? arguments[1] : "app/App/Assets.xcassets/AppIcon.appiconset"
@@ -33,108 +35,135 @@ let specs: [IconSpec] = [
     .init(filename: "AppIcon-1024.png", pixels: 1024),
 ]
 
-func point(_ x: CGFloat, _ y: CGFloat, _ s: CGFloat) -> NSPoint {
-    NSPoint(x: x * s, y: y * s)
+func p(_ x: CGFloat, _ y: CGFloat, _ s: CGFloat) -> CGPoint {
+    CGPoint(x: x * s, y: y * s)
+}
+
+func makeGradient(_ colors: [CGColor], space: CGColorSpace) -> CGGradient {
+    CGGradient(colorsSpace: space, colors: colors as CFArray, locations: nil)!
 }
 
 func renderIcon(size: Int, path: String) throws {
-    guard let rep = NSBitmapImageRep(
-        bitmapDataPlanes: nil,
-        pixelsWide: size,
-        pixelsHigh: size,
-        bitsPerSample: 8,
-        samplesPerPixel: 3,
-        hasAlpha: false,
-        isPlanar: false,
-        colorSpaceName: .deviceRGB,
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    guard let context = CGContext(
+        data: nil,
+        width: size,
+        height: size,
+        bitsPerComponent: 8,
         bytesPerRow: 0,
-        bitsPerPixel: 0
+        space: colorSpace,
+        bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
     ) else {
         throw NSError(domain: "PlaceDriftIcon", code: 1)
     }
 
-    rep.size = NSSize(width: size, height: size)
-    guard let context = NSGraphicsContext(bitmapImageRep: rep) else {
+    context.setAllowsAntialiasing(true)
+    context.setShouldAntialias(true)
+
+    let s = CGFloat(size) / 1024.0
+    let rect = CGRect(x: 0, y: 0, width: CGFloat(size), height: CGFloat(size))
+
+    // Deep navy/teal field that stays readable on both light and dark home screens.
+    let background = makeGradient([
+        CGColor(red: 0.035, green: 0.055, blue: 0.105, alpha: 1),
+        CGColor(red: 0.035, green: 0.22, blue: 0.31, alpha: 1)
+    ], space: colorSpace)
+    context.saveGState()
+    context.addRect(rect)
+    context.clip()
+    context.drawLinearGradient(
+        background,
+        start: p(90, 950, s),
+        end: p(940, 90, s),
+        options: []
+    )
+    context.restoreGState()
+
+    // Soft cyan halo around the moving pin.
+    let halo = makeGradient([
+        CGColor(red: 0.11, green: 0.84, blue: 0.92, alpha: 0.28),
+        CGColor(red: 0.10, green: 0.45, blue: 0.95, alpha: 0.0)
+    ], space: colorSpace)
+    let haloCenter = p(565, 510, s)
+    context.drawRadialGradient(
+        halo,
+        startCenter: haloCenter,
+        startRadius: 0,
+        endCenter: haloCenter,
+        endRadius: 380 * s,
+        options: [.drawsAfterEndLocation]
+    )
+
+    // Three motion trails: the "drift" part of the mark.
+    context.setStrokeColor(CGColor(red: 0.20, green: 0.86, blue: 0.96, alpha: 0.95))
+    context.setLineCap(.round)
+    context.setLineWidth(34 * s)
+    for (y, endX) in [(620.0, 535.0), (500.0, 470.0), (380.0, 400.0)] {
+        let path = CGMutablePath()
+        path.move(to: p(155, CGFloat(y), s))
+        path.addCurve(
+            to: p(CGFloat(endX), CGFloat(y) + 5, s),
+            control1: p(245, CGFloat(y) + 40, s),
+            control2: p(350, CGFloat(y) - 34, s)
+        )
+        context.addPath(path)
+        context.strokePath()
+    }
+
+    // Main map pin, intentionally leaning forward into the trails.
+    let pin = CGMutablePath()
+    pin.move(to: p(650, 175, s))
+    pin.addCurve(to: p(815, 565, s), control1: p(725, 315, s), control2: p(815, 420, s))
+    pin.addCurve(to: p(620, 800, s), control1: p(815, 695, s), control2: p(730, 800, s))
+    pin.addCurve(to: p(425, 565, s), control1: p(510, 800, s), control2: p(425, 695, s))
+    pin.addCurve(to: p(650, 175, s), control1: p(425, 420, s), control2: p(550, 295, s))
+    pin.closeSubpath()
+
+    let pinGradient = makeGradient([
+        CGColor(red: 0.94, green: 1.0, blue: 1.0, alpha: 1),
+        CGColor(red: 0.47, green: 0.94, blue: 1.0, alpha: 1)
+    ], space: colorSpace)
+    context.saveGState()
+    context.addPath(pin)
+    context.clip()
+    context.drawLinearGradient(
+        pinGradient,
+        start: p(470, 760, s),
+        end: p(760, 265, s),
+        options: []
+    )
+    context.restoreGState()
+
+    context.setFillColor(CGColor(red: 0.035, green: 0.16, blue: 0.24, alpha: 1))
+    context.fillEllipse(in: CGRect(x: 535*s, y: 535*s, width: 170*s, height: 170*s))
+
+    let arrow = CGMutablePath()
+    arrow.move(to: p(592, 610, s))
+    arrow.addLine(to: p(690, 665, s))
+    arrow.addLine(to: p(642, 566, s))
+    arrow.closeSubpath()
+    context.addPath(arrow)
+    context.setFillColor(CGColor(red: 0.20, green: 0.86, blue: 0.96, alpha: 1))
+    context.fillPath()
+
+    guard let image = context.makeImage() else {
         throw NSError(domain: "PlaceDriftIcon", code: 2)
     }
 
-    NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = context
-    context.shouldAntialias = true
-
-    let s = CGFloat(size) / 1024.0
-    let rect = NSRect(x: 0, y: 0, width: CGFloat(size), height: CGFloat(size))
-
-    let background = NSGradient(colors: [
-        NSColor(calibratedRed: 0.035, green: 0.055, blue: 0.105, alpha: 1),
-        NSColor(calibratedRed: 0.035, green: 0.22, blue: 0.31, alpha: 1)
-    ])!
-    background.draw(in: rect, angle: -35)
-
-    // Soft orbital glow behind the pin.
-    let glow = NSGradient(colors: [
-        NSColor(calibratedRed: 0.11, green: 0.84, blue: 0.92, alpha: 0.30),
-        NSColor(calibratedRed: 0.10, green: 0.45, blue: 0.95, alpha: 0.0)
-    ])!
-    let glowCenter = point(535, 515, s)
-    glow.draw(
-        fromCenter: glowCenter,
-        radius: 0,
-        toCenter: glowCenter,
-        radius: 360 * s,
-        options: []
-    )
-
-    // Drift trails.
-    let trailColor = NSColor(calibratedRed: 0.20, green: 0.86, blue: 0.96, alpha: 0.95)
-    for (y, widthScale) in [(620.0, 1.0), (500.0, 0.82), (380.0, 0.62)] {
-        let trail = NSBezierPath()
-        trail.move(to: point(170, CGFloat(y), s))
-        trail.curve(
-            to: point(455 * CGFloat(widthScale) + 80, CGFloat(y) + 5, s),
-            controlPoint1: point(250, CGFloat(y) + 42, s),
-            controlPoint2: point(350, CGFloat(y) - 36, s)
-        )
-        trail.lineWidth = 34 * s
-        trail.lineCapStyle = .round
-        trailColor.setStroke()
-        trail.stroke()
-    }
-
-    // Main map pin with a slight forward lean to imply motion.
-    let pin = NSBezierPath()
-    pin.move(to: point(650, 180, s))
-    pin.curve(to: point(805, 565, s), controlPoint1: point(720, 315, s), controlPoint2: point(805, 420, s))
-    pin.curve(to: point(620, 790, s), controlPoint1: point(805, 690, s), controlPoint2: point(725, 790, s))
-    pin.curve(to: point(435, 565, s), controlPoint1: point(515, 790, s), controlPoint2: point(435, 690, s))
-    pin.curve(to: point(650, 180, s), controlPoint1: point(435, 425, s), controlPoint2: point(555, 300, s))
-    pin.close()
-
-    let pinGradient = NSGradient(colors: [
-        NSColor(calibratedRed: 0.92, green: 1.0, blue: 1.0, alpha: 1),
-        NSColor(calibratedRed: 0.50, green: 0.94, blue: 1.0, alpha: 1)
-    ])!
-    pinGradient.draw(in: pin, angle: -30)
-
-    let center = NSBezierPath(ovalIn: NSRect(x: 535*s, y: 535*s, width: 170*s, height: 170*s))
-    NSColor(calibratedRed: 0.035, green: 0.16, blue: 0.24, alpha: 1).setFill()
-    center.fill()
-
-    // Small direction marker inside the pin.
-    let arrow = NSBezierPath()
-    arrow.move(to: point(600, 620, s))
-    arrow.line(to: point(685, 660, s))
-    arrow.line(to: point(642, 575, s))
-    arrow.close()
-    NSColor(calibratedRed: 0.20, green: 0.86, blue: 0.96, alpha: 1).setFill()
-    arrow.fill()
-
-    NSGraphicsContext.restoreGraphicsState()
-
-    guard let data = rep.representation(using: .png, properties: [:]) else {
+    let url = URL(fileURLWithPath: path) as CFURL
+    guard let destination = CGImageDestinationCreateWithURL(
+        url,
+        UTType.png.identifier as CFString,
+        1,
+        nil
+    ) else {
         throw NSError(domain: "PlaceDriftIcon", code: 3)
     }
-    try data.write(to: URL(fileURLWithPath: path))
+
+    CGImageDestinationAddImage(destination, image, nil)
+    guard CGImageDestinationFinalize(destination) else {
+        throw NSError(domain: "PlaceDriftIcon", code: 4)
+    }
 }
 
 for spec in specs {
