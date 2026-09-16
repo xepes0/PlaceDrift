@@ -67,7 +67,7 @@ struct PlaceDriftAppView: View {
                     }
                     .disabled(!controller.isLocationActive && !controller.isDiscovering)
 
-                    Text("Apple Maps sharing updates these coordinates automatically.")
+                    Text("Map sharing updates these coordinates automatically.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -135,11 +135,11 @@ struct PlaceDriftAppView: View {
                     )
 
                     if controller.mapSharingReady {
-                        Label("Ready for Apple Maps sharing", systemImage: "square.and.arrow.up.fill")
+                        Label("Ready for map sharing", systemImage: "square.and.arrow.up.fill")
                             .foregroundStyle(.green)
                     }
 
-                    Text("In Apple Maps, choose a place, tap Share, then choose PlaceDrift. The shared location is sent directly to the running CoreDevice session; Shortcuts are not required.")
+                    Text("Share a place from Apple Maps, Amap, or Baidu Maps to PlaceDrift. The shared location is sent directly to the running CoreDevice session; Shortcuts are not required.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
 
