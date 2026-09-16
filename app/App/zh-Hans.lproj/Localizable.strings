@@ -17,9 +17,9 @@
 "After tapping Start Pairing, open Settings › Privacy & Security › Developer Mode › Pair with Host, select PlaceDrift, then enter the PIN shown here." = "点击“开始配对”后，打开“设置”›“隐私与安全性”›“开发者模式”›“与主机配对”，选择 PlaceDrift，然后输入此处显示的 PIN。";
 
 "Not checked · 10.7.0.1" = "未检测 · 10.7.0.1";
-"Checking… · 10.7.0.1" = "检测中… · 10.7.0.1";
-"Connected · 10.7.0.1" = "已连接 · 10.7.0.1";
-"Not connected · 10.7.0.1" = "未连接 · 10.7.0.1";
+"Checking… · 10.7.0.1" = "协议检测中… · 10.7.0.1";
+"Connected · 10.7.0.1" = "已验证 · 10.7.0.1";
+"Not connected · 10.7.0.1" = "不可用 · 10.7.0.1";
 "RemotePairing not found" = "未发现 RemotePairing 服务";
 
 "Maps sharing" = "地图分享";
@@ -59,7 +59,7 @@
 "The selected location has no coordinates." = "所选位置没有可用坐标。";
 
 "Runtime requirement" = "运行要求";
-"Enable loopback-address 10.7.0.1 in the active TUN configuration. Tested working: LocalDevVPN, Clash Mi, and Clash. Surge, Egern, and other VPN/TUN apps are pending verification. PlaceDrift does not start a VPN." = "请在当前 TUN 配置中启用 loopback-address 10.7.0.1。已实测可用：LocalDevVPN、Clash Mi、Clash。Surge、Egern 及其他 VPN/TUN 工具后续测试。PlaceDrift 本身不会启动 VPN。";
+"Enable loopback-address 10.7.0.1 in the active TUN configuration. Tested working: LocalDevVPN, Clash Mi, Clash, and Karing. Loon and Surge currently fail the RemotePairing protocol check in the tested configurations; Egern is pending verification. PlaceDrift does not start a VPN." = "请在当前 TUN 配置中启用 loopback-address 10.7.0.1。已实测可用：LocalDevVPN、Clash Mi、Clash、Karing。Loon 与 Surge 在当前实测配置下无法通过 RemotePairing 协议检测；Egern 待测试。PlaceDrift 本身不会启动 VPN。";
 
 "Ready" = "就绪";
 "Failed" = "失败";
@@ -74,9 +74,9 @@
 "LocationSimulation cleared" = "模拟定位已清除";
 "Invalid coordinates." = "坐标无效。";
 
-"RemotePairing connection timed out." = "RemotePairing 连接超时。请确保当前 TUN 已启用 loopback-address 10.7.0.1。已实测支持：LocalDevVPN、Clash Mi、Clash。";
-"Could not reach RemotePairing through 10.7.0.1." = "无法通过 10.7.0.1 连接 RemotePairing。请确保当前 TUN 已启用 loopback-address 10.7.0.1。已实测支持：LocalDevVPN、Clash Mi、Clash。";
-"No matching RemotePairing service was found. Keep Clash Mi connected with loopback-address 10.7.0.1." = "未找到匹配的 RemotePairing 服务。请确认本地网络权限已允许，并确保当前 TUN 已启用 loopback-address 10.7.0.1。已实测支持：LocalDevVPN、Clash Mi、Clash。";
+"RemotePairing connection timed out." = "RemotePairing 连接超时。请确保当前 TUN 已启用 loopback-address 10.7.0.1。已实测支持：LocalDevVPN、Clash Mi、Clash、Karing。";
+"Could not reach RemotePairing through 10.7.0.1." = "无法通过 10.7.0.1 连接 RemotePairing。请确保当前 TUN 已启用 loopback-address 10.7.0.1。已实测支持：LocalDevVPN、Clash Mi、Clash、Karing。";
+"No matching RemotePairing service was found. Keep Clash Mi connected with loopback-address 10.7.0.1." = "未找到匹配的 RemotePairing 服务。请确认本地网络权限已允许，并确保当前 TUN 已启用 loopback-address 10.7.0.1。已实测支持：LocalDevVPN、Clash Mi、Clash、Karing。";
 "Pair verify timed out." = "Pair Verify 超时。请确认 TUN 自环仍然可用后重试。";
 "Pair verify failed." = "Pair Verify 失败。请确认配对记录有效，并保持 TUN 自环可用。";
 "Saved pairing is no longer valid." = "已保存的配对记录已失效，请重新配对此 iPhone。";
