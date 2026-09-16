@@ -55,7 +55,9 @@ If the active VPN/TUN app does not provide an equivalent self-loop, PlaceDrift m
 This test build keeps the Maps-share/background path and adds:
 
 - clearer Chinese transport errors;
-- a persistent `10.7.0.1` transport indicator and app version in the status section;
+- a live `10.7.0.1` transport health indicator that probes the current RemotePairing port and updates automatically while the app is open;
+- app version/build in the status section;
+- when a saved pairing record exists, the UI hides **Start Pairing** and shows only **Delete Saved Pairing**, preventing accidental re-pairing;
 - clearer runtime guidance when the active TUN does not provide the self-loop;
 - App Shortcuts restored alongside Apple Maps sharing;
 - coordinate fields update automatically after Maps sharing or a Shortcuts location action.
@@ -127,6 +129,8 @@ Output:
 ```
 
 The unsigned IPA contains the embedded `PlaceDriftShare.appex`. The main app and extension must both remain signed as part of the same installed bundle.
+
+For the current LCSugn test workflow, if an updated build will not overwrite the installed app, enabling **Remove Embedded** before re-signing has been confirmed to allow the update while keeping the same bundle identifier.
 
 ## Privacy
 
