@@ -1,8 +1,8 @@
 "Reading Maps location…" = "正在读取地图位置…";
 "Close" = "关闭";
-"No Apple Maps link was found in the shared item." = "分享内容中没有找到 Apple 地图链接。";
-"Resolving Apple Maps link…" = "正在解析 Apple 地图链接…";
-"Could not extract coordinates from this Apple Maps link." = "无法从这个 Apple 地图链接中提取坐标。";
+"No supported map link was found in the shared item." = "分享内容中没有找到支持的地图链接。";
+"Resolving map link…" = "正在解析地图链接…";
+"Could not extract coordinates from this map link." = "无法从这个地图链接中提取坐标。";
 "Sending location to PlaceDrift…" = "正在把位置发送到 PlaceDrift…";
 "Location sent to PlaceDrift." = "位置已发送到 PlaceDrift。";
 "PlaceDrift is not reachable. Open PlaceDrift once, enable Maps sharing, and allow Always Location access." = "无法连接 PlaceDrift。请先打开 PlaceDrift，启用“地图分享”，并允许“始终”使用位置。";
