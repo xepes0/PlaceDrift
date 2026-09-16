@@ -35,8 +35,8 @@
 "Location permission restricted" = "定位权限受限制";
 "Location Services disabled" = "定位服务已关闭";
 "Background keep-alive failed" = "后台保持启动失败";
-"Ready for Apple Maps sharing" = "已准备接收 Apple 地图分享";
-"In Apple Maps, choose a place, tap Share, then choose PlaceDrift. The shared location is sent directly to the running CoreDevice session; Shortcuts are not required." = "在 Apple 地图中选择地点，点“分享”，再选择 PlaceDrift。分享的位置会直接发送给正在运行的 CoreDevice 会话，不需要经过快捷指令。";
+"Ready for map sharing" = "已准备接收地图分享";
+"Share a place from Apple Maps, Amap, or Baidu Maps to PlaceDrift. The shared location is sent directly to the running CoreDevice session; Shortcuts are not required." = "可从 Apple 地图、高德地图或百度地图分享地点到 PlaceDrift。分享的位置会直接发送给正在运行的 CoreDevice 会话，不需要经过快捷指令。";
 "To keep PlaceDrift available in the background without the blue location pill, set Location access for PlaceDrift to Always in Settings." = "要让 PlaceDrift 在后台保持可用并避免蓝色定位提示，请在“设置”中把 PlaceDrift 的定位权限设为“始终”。";
 
 "Location" = "位置";
@@ -45,7 +45,7 @@
 "Update Location" = "更新位置";
 "Set Location" = "设置位置";
 "Restore Real Location" = "恢复真实位置";
-"Apple Maps sharing updates these coordinates automatically." = "从 Apple 地图分享位置后，这里的经纬度会自动更新。";
+"Map sharing updates these coordinates automatically." = "从地图分享位置后，这里的经纬度会自动更新。";
 
 "Shortcuts" = "快捷指令";
 "You can pass a Shortcuts Location directly to PlaceDrift, pass latitude and longitude, or restore the real location." = "可在快捷指令中直接把“位置”传给 PlaceDrift，也可以传入纬度和经度，或恢复真实位置。";
