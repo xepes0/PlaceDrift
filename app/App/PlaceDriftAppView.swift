@@ -1,7 +1,7 @@
 import SwiftUI
 
-struct WLOCAppView: View {
-    @ObservedObject var controller: CoreDeviceProbeController
+struct PlaceDriftAppView: View {
+    @ObservedObject var controller: CoreDeviceController
 
     @State private var latitude = "34.052235"
     @State private var longitude = "-118.243683"
@@ -20,9 +20,11 @@ struct WLOCAppView: View {
                         "Engine",
                         value: NSLocalizedString(controller.status, comment: "CoreDevice engine status")
                     )
+
                     if controller.isLocationActive {
                         Label("LocationSimulation active", systemImage: "location.fill")
                     }
+
                     if let error = controller.lastError {
                         Text(error)
                             .foregroundStyle(.red)
@@ -58,7 +60,7 @@ struct WLOCAppView: View {
                         .disabled(controller.isLocationActive)
                     }
 
-                    Text("After tapping Start Pairing, open Settings › Privacy & Security › Developer Mode › Pair with Host, select WLOC, then enter the PIN shown here.")
+                    Text("After tapping Start Pairing, open Settings › Privacy & Security › Developer Mode › Pair with Host, select PlaceDrift, then enter the PIN shown here.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -84,22 +86,29 @@ struct WLOCAppView: View {
                     .disabled(!controller.isLocationActive && !controller.isDiscovering)
                 }
 
+                Section("Shortcuts") {
+                    Text("You can pass a Shortcuts Location directly to PlaceDrift, or pass latitude and longitude as numbers.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Runtime requirement") {
-                    Text("Keep Clash Mi connected with TUN loopback-address 10.7.0.1. WLOC does not start a VPN.")
+                    Text("Keep Clash Mi connected with TUN loopback-address 10.7.0.1. PlaceDrift does not start a VPN.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("WLOC")
+            .navigationTitle("PlaceDrift")
         }
         .onAppear {
             controller.refreshPairingState()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .wlocDeepLinkSetLocation)) { note in
+        .onReceive(NotificationCenter.default.publisher(for: .placeDriftSetLocation)) { note in
             guard
                 let latitude = note.userInfo?["latitude"] as? Double,
                 let longitude = note.userInfo?["longitude"] as? Double
             else { return }
+
             self.latitude = String(latitude)
             self.longitude = String(longitude)
         }

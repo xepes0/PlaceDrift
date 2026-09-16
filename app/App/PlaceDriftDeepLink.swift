@@ -1,13 +1,13 @@
 import Foundation
 
 extension Notification.Name {
-    static let wlocDeepLinkSetLocation = Notification.Name("wloc.deepLink.setLocation")
+    static let placeDriftSetLocation = Notification.Name("placedrift.setLocation")
 }
 
-enum WLOCDeepLinkHandler {
+enum PlaceDriftDeepLinkHandler {
     @MainActor
-    static func handle(_ url: URL, controller: CoreDeviceProbeController) {
-        guard url.scheme?.lowercased() == "wloc" else { return }
+    static func handle(_ url: URL, controller: CoreDeviceController) {
+        guard url.scheme?.lowercased() == "placedrift" else { return }
 
         switch url.host?.lowercased() {
         case "set":
@@ -20,7 +20,7 @@ enum WLOCDeepLinkHandler {
             else { return }
 
             NotificationCenter.default.post(
-                name: .wlocDeepLinkSetLocation,
+                name: .placeDriftSetLocation,
                 object: nil,
                 userInfo: ["latitude": latitude, "longitude": longitude]
             )

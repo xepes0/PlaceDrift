@@ -1,2 +1,0 @@
-"CFBundleDisplayName" = "WLOC";
-"NSLocalNetworkUsageDescription" = "WLOC 需要访问本机局域网中的 CoreDevice 配对服务，以设置和恢复模拟位置。";

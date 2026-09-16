@@ -5,7 +5,7 @@
   <key>CFBundleDevelopmentRegion</key>
   <string>$(DEVELOPMENT_LANGUAGE)</string>
   <key>CFBundleDisplayName</key>
-  <string>WLOC</string>
+  <string>PlaceDrift</string>
   <key>CFBundleExecutable</key>
   <string>$(EXECUTABLE_NAME)</string>
   <key>CFBundleIdentifier</key>
@@ -24,17 +24,17 @@
   <array>
     <dict>
       <key>CFBundleURLName</key>
-      <string>com.xepes.wloc.coredevice</string>
+      <string>com.xepes.placedrift</string>
       <key>CFBundleURLSchemes</key>
       <array>
-        <string>wloc</string>
+        <string>placedrift</string>
       </array>
     </dict>
   </array>
   <key>LSRequiresIPhoneOS</key>
   <true/>
   <key>NSLocalNetworkUsageDescription</key>
-  <string>WLOC uses this iPhone's local CoreDevice pairing services to set and restore simulated location.</string>
+  <string>PlaceDrift uses this iPhone's local CoreDevice pairing services to set and restore simulated location.</string>
   <key>NSBonjourServices</key>
   <array>
     <string>_remotepairing-pairable-host._tcp</string>

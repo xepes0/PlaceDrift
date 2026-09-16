@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RUST_TARGET="aarch64-apple-ios"
 RUST_OUT="$ROOT/.build/coredevice-app"
-VENDOR="$ROOT/wloc-app/Vendor"
-DERIVED="$ROOT/.build/xcode-wloc-app"
+VENDOR="$ROOT/app/Vendor"
+DERIVED="$ROOT/.build/xcode-placedrift"
 ARTIFACT="$ROOT/.build/artifacts"
 
 rustup target add "$RUST_TARGET"
@@ -16,15 +16,15 @@ cargo build \
   --target-dir "$RUST_OUT"
 
 mkdir -p "$VENDOR/include" "$ARTIFACT"
-cp "$RUST_OUT/$RUST_TARGET/release/libwloc_coredevice_engine.a" "$VENDOR/"
-cp "$ROOT/native/coredevice/include/wloc_coredevice.h" "$VENDOR/include/"
+cp "$RUST_OUT/$RUST_TARGET/release/libplacedrift_coredevice_engine.a" "$VENDOR/"
+cp "$ROOT/native/coredevice/include/placedrift_coredevice.h" "$VENDOR/include/"
 
-cd "$ROOT/wloc-app"
+cd "$ROOT/app"
 xcodegen generate
 
 xcodebuild \
-  -project WLOC.xcodeproj \
-  -scheme WLOC \
+  -project PlaceDrift.xcodeproj \
+  -scheme PlaceDrift \
   -configuration Release \
   -sdk iphoneos \
   -destination 'generic/platform=iOS' \
@@ -33,15 +33,17 @@ xcodebuild \
   CODE_SIGNING_REQUIRED=NO \
   build
 
-APP="$DERIVED/Build/Products/Release-iphoneos/WLOC.app"
+APP="$DERIVED/Build/Products/Release-iphoneos/PlaceDrift.app"
 test -d "$APP"
+
 rm -rf "$ARTIFACT/Payload"
 mkdir -p "$ARTIFACT/Payload"
 cp -R "$APP" "$ARTIFACT/Payload/"
+
 (
   cd "$ARTIFACT"
-  rm -f WLOC-unsigned.ipa
-  zip -qry WLOC-unsigned.ipa Payload
+  rm -f PlaceDrift-unsigned.ipa
+  zip -qry PlaceDrift-unsigned.ipa Payload
 )
 
-echo "Built: $ARTIFACT/WLOC-unsigned.ipa"
+echo "Built: $ARTIFACT/PlaceDrift-unsigned.ipa"

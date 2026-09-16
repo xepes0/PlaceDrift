@@ -1,17 +1,17 @@
 import Foundation
 
-private enum WLOCShortcutCommand: Codable {
+private enum PlaceDriftShortcutCommand: Codable {
     case setLocation(latitude: Double, longitude: Double)
     case clearLocation
     case startPairing
 }
 
 @MainActor
-enum WLOCShortcutRouter {
-    private static let pendingCommandKey = "wloc.shortcut.pending-command"
-    private static var controller: CoreDeviceProbeController?
+enum PlaceDriftShortcutRouter {
+    private static let pendingCommandKey = "placedrift.shortcut.pending-command"
+    private static var controller: CoreDeviceController?
 
-    static func attach(_ controller: CoreDeviceProbeController) {
+    static func attach(_ controller: CoreDeviceController) {
         self.controller = controller
         consumePendingCommand()
     }
@@ -28,7 +28,7 @@ enum WLOCShortcutRouter {
         submit(.startPairing)
     }
 
-    private static func submit(_ command: WLOCShortcutCommand) {
+    private static func submit(_ command: PlaceDriftShortcutCommand) {
         guard let controller else {
             savePendingCommand(command)
             return
@@ -39,7 +39,7 @@ enum WLOCShortcutRouter {
     private static func consumePendingCommand() {
         guard
             let data = UserDefaults.standard.data(forKey: pendingCommandKey),
-            let command = try? JSONDecoder().decode(WLOCShortcutCommand.self, from: data),
+            let command = try? JSONDecoder().decode(PlaceDriftShortcutCommand.self, from: data),
             let controller
         else { return }
 
@@ -47,16 +47,16 @@ enum WLOCShortcutRouter {
         apply(command, to: controller)
     }
 
-    private static func savePendingCommand(_ command: WLOCShortcutCommand) {
+    private static func savePendingCommand(_ command: PlaceDriftShortcutCommand) {
         guard let data = try? JSONEncoder().encode(command) else { return }
         UserDefaults.standard.set(data, forKey: pendingCommandKey)
     }
 
-    private static func apply(_ command: WLOCShortcutCommand, to controller: CoreDeviceProbeController) {
+    private static func apply(_ command: PlaceDriftShortcutCommand, to controller: CoreDeviceController) {
         switch command {
         case .setLocation(let latitude, let longitude):
             NotificationCenter.default.post(
-                name: .wlocDeepLinkSetLocation,
+                name: .placeDriftSetLocation,
                 object: nil,
                 userInfo: ["latitude": latitude, "longitude": longitude]
             )

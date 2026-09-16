@@ -1,6 +1,6 @@
-name: WLOC
+name: PlaceDrift
 options:
-  bundleIdPrefix: com.xepes.wloc
+  bundleIdPrefix: com.xepes.placedrift
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -13,7 +13,7 @@ settings:
     TARGETED_DEVICE_FAMILY: "1,2"
 
 targets:
-  WLOC:
+  PlaceDrift:
     type: application
     platform: iOS
     sources:
@@ -22,12 +22,12 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: App/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.xepes.wloc.coredevice
-        PRODUCT_NAME: WLOC
-        SWIFT_OBJC_BRIDGING_HEADER: App/WLOCApp-Bridging-Header.h
+        PRODUCT_BUNDLE_IDENTIFIER: com.xepes.placedrift
+        PRODUCT_NAME: PlaceDrift
+        SWIFT_OBJC_BRIDGING_HEADER: App/PlaceDrift-Bridging-Header.h
         HEADER_SEARCH_PATHS: "$(SRCROOT)/Vendor/include"
         LIBRARY_SEARCH_PATHS: "$(SRCROOT)/Vendor"
-        OTHER_LDFLAGS: "$(inherited) -lwloc_coredevice_engine"
+        OTHER_LDFLAGS: "$(inherited) -lplacedrift_coredevice_engine"
         SWIFT_STRICT_CONCURRENCY: minimal
         SWIFT_VERSION: "5.0"
     scheme:

@@ -1,86 +1,15 @@
-name: Validate
+name: Validate PlaceDrift
 
 on:
   push:
-    branches: [main, browser-wasm, wloc-app-mainline]
+    branches: [placedrift-mainline]
   pull_request:
 
 concurrency:
-  group: coredevice-lab-${{ github.ref }}
+  group: placedrift-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  browser-transport:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Node version
-        run: node --version
-      - name: Validate Clash Mi override and browser transport page
-        run: node scripts/check-browser-wasm-override.mjs
-
-  wasm-coredevice:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Add wasm target
-        run: rustup target add wasm32-unknown-unknown
-      - name: Check idevice CoreDevice WASM surface
-        working-directory: native/browser-wasm-probe
-        run: cargo check --target wasm32-unknown-unknown
-
-  publish-browser-wasm:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/browser-wasm' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: browser-wasm
-      - name: Add wasm target
-        run: rustup target add wasm32-unknown-unknown
-      - name: Build release WASM
-        working-directory: native/browser-wasm-probe
-        run: cargo build --release --target wasm32-unknown-unknown
-      - name: Install matching wasm-bindgen CLI
-        working-directory: native/browser-wasm-probe
-        run: |
-          VERSION=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "wasm-bindgen") | .version' | head -n1)
-          echo "wasm-bindgen version: ${VERSION}"
-          cargo install wasm-bindgen-cli --version "${VERSION}" --locked
-      - name: Generate web bindings
-        run: |
-          rm -rf experiments/browser-wasm/pkg
-          mkdir -p experiments/browser-wasm/pkg
-          wasm-bindgen \
-            native/browser-wasm-probe/target/wasm32-unknown-unknown/release/wloc_browser_wasm_probe.wasm \
-            --target web \
-            --no-typescript \
-            --out-dir experiments/browser-wasm/pkg
-      - name: Commit generated browser package
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add experiments/browser-wasm/pkg
-          if git diff --cached --quiet; then
-            echo "Browser package unchanged"
-          else
-            git commit -m "Build browser WASM package [skip ci]"
-            git push origin HEAD:browser-wasm
-          fi
-
-  swift-loopback:
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-      - name: Swift version
-        run: swift --version
-      - name: Build
-        run: swift build -v
-      - name: Test
-        run: swift test -v
-
   rust-coredevice:
     runs-on: ubuntu-latest
     steps:
@@ -89,60 +18,21 @@ jobs:
         run: rustc --version
       - name: Check
         working-directory: native/coredevice
-        run: cargo check --locked || cargo check
+        run: cargo check
       - name: Test
         working-directory: native/coredevice
         run: cargo test --lib
 
-  ios-coredevice-probe:
+  ios-app:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
         run: brew install xcodegen
-      - name: Build unsigned iOS probe
-        run: bash scripts/build-ios-coredevice-probe.sh
+      - name: Build unsigned PlaceDrift app
+        run: bash scripts/build-app.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: WLOCCoreDeviceProbe-unsigned
-          path: .build/artifacts/WLOCCoreDeviceProbe-unsigned.ipa
+          name: PlaceDrift-unsigned
+          path: .build/artifacts/PlaceDrift-unsigned.ipa
           if-no-files-found: error
-
-  ios-wloc-app:
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install XcodeGen
-        run: brew install xcodegen
-      - name: Build unsigned WLOC app
-        run: bash scripts/build-wloc-app.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: WLOC-unsigned
-          path: .build/artifacts/WLOC-unsigned.ipa
-          if-no-files-found: error
-
-  mihomo-sing-tun-compat:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - sing_tun: v0.4.21
-            legacy_patch: '1'
-          - sing_tun: v0.4.22
-            legacy_patch: '1'
-          - sing_tun: v0.4.24
-            legacy_patch: '0'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25.x'
-          cache: false
-      - name: Compile Mihomo 1.19.31 TUN with selected sing-tun
-        env:
-          MIHOMO_VERSION: v1.19.31
-          SING_TUN_VERSION: ${{ matrix.sing_tun }}
-          PATCH_LEGACY_API: ${{ matrix.legacy_patch }}
-        run: bash scripts/check-mihomo-sing-tun.sh

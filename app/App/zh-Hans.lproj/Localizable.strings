@@ -10,15 +10,17 @@
 "Start Pairing" = "开始配对";
 "Cancel Pairing" = "取消配对";
 "Delete Saved Pairing" = "删除已保存的配对";
-"After tapping Start Pairing, open Settings › Privacy & Security › Developer Mode › Pair with Host, select WLOC, then enter the PIN shown here." = "点击“开始配对”后，打开“设置”›“隐私与安全性”›“开发者模式”›“与主机配对”，选择 WLOC，然后输入此处显示的 PIN。";
+"After tapping Start Pairing, open Settings › Privacy & Security › Developer Mode › Pair with Host, select PlaceDrift, then enter the PIN shown here." = "点击“开始配对”后，打开“设置”›“隐私与安全性”›“开发者模式”›“与主机配对”，选择 PlaceDrift，然后输入此处显示的 PIN。";
 "Location" = "位置";
 "Latitude" = "纬度";
 "Longitude" = "经度";
 "Update Location" = "更新位置";
 "Set Location" = "设置位置";
 "Restore Real Location" = "恢复真实位置";
+"Shortcuts" = "快捷指令";
+"You can pass a Shortcuts Location directly to PlaceDrift, or pass latitude and longitude as numbers." = "可以把快捷指令中的“位置”直接传给 PlaceDrift，也可以分别传入纬度和经度。";
 "Runtime requirement" = "运行要求";
-"Keep Clash Mi connected with TUN loopback-address 10.7.0.1. WLOC does not start a VPN." = "请保持 Clash Mi 已连接，并在 TUN 中启用 loopback-address 10.7.0.1。WLOC 本身不会启动 VPN。";
+"Keep Clash Mi connected with TUN loopback-address 10.7.0.1. PlaceDrift does not start a VPN." = "请保持 Clash Mi 已连接，并在 TUN 中启用 loopback-address 10.7.0.1。PlaceDrift 本身不会启动 VPN。";
 
 "Ready" = "就绪";
 "Pairing record removed" = "已删除配对记录";
@@ -31,12 +33,12 @@
 "LocationSimulation active. Switch to Maps now to verify." = "模拟定位已启用。现在可切换到地图验证。";
 "LocationSimulation cleared" = "模拟定位已清除";
 
-"Set WLOC Location" = "设置 WLOC 位置";
-"Send a Shortcuts location directly to WLOC and start LocationSimulation." = "将快捷指令中的“位置”直接发送到 WLOC，并启动模拟定位。";
-"Set WLOC Coordinates" = "设置 WLOC 坐标";
-"Pass latitude and longitude to WLOC and start LocationSimulation." = "将纬度和经度传给 WLOC，并启动模拟定位。";
-"Clear WLOC LocationSimulation and restore the real device location." = "清除 WLOC 模拟定位并恢复设备真实位置。";
-"Pair WLOC with This iPhone" = "将 WLOC 与此 iPhone 配对";
-"Open WLOC and begin CoreDevice RemotePairing." = "打开 WLOC 并开始 CoreDevice RemotePairing 配对。";
+"Set PlaceDrift Location" = "设置 PlaceDrift 位置";
+"Send a Shortcuts location directly to PlaceDrift and start LocationSimulation." = "将快捷指令中的“位置”直接发送到 PlaceDrift，并启动模拟定位。";
+"Set PlaceDrift Coordinates" = "设置 PlaceDrift 坐标";
+"Pass latitude and longitude to PlaceDrift and start LocationSimulation." = "将纬度和经度传给 PlaceDrift，并启动模拟定位。";
+"Clear PlaceDrift LocationSimulation and restore the real device location." = "清除 PlaceDrift 模拟定位并恢复设备真实位置。";
+"Pair PlaceDrift with This iPhone" = "将 PlaceDrift 与此 iPhone 配对";
+"Open PlaceDrift and begin CoreDevice RemotePairing." = "打开 PlaceDrift 并开始 CoreDevice RemotePairing 配对。";
 "Invalid coordinates." = "坐标无效。";
 "The selected location has no coordinates." = "所选位置没有可用坐标。";
