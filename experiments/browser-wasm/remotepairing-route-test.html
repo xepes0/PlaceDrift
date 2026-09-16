@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>WLOC RemotePairing Route Test</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:20px;line-height:1.45}main{max-width:760px;margin:auto}input,button{font:inherit;width:100%;box-sizing:border-box;padding:12px;margin:6px 0 12px}button{font-weight:700}pre{white-space:pre-wrap;word-break:break-word;border:1px solid #8886;border-radius:10px;padding:12px;min-height:180px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.note{opacity:.72;font-size:.92rem}
+</style>
+</head>
+<body><main>
+<h1>WLOC RemotePairing Route Test</h1>
+<p class="note">只测试 Safari → Clash Mi VLESS/WebSocket → 指定 TCP 地址。不会读取或上传 pairing record。</p>
+<label>Bridge WebSocket</label>
+<input id="ws" value="ws://127.0.0.1:17890/wloc" autocapitalize="off" autocomplete="off">
+<label>RemotePairing Port</label>
+<input id="port" type="number" value="49152" min="1" max="65535">
+<div class="row">
+<button id="local">测试 127.0.0.1</button>
+<button id="wifi">测试 192.168.10.68</button>
+</div>
+<button id="customBtn">测试自定义地址</button>
+<input id="custom" value="10.7.0.1" autocapitalize="off" autocomplete="off">
+<h2>Log</h2><pre id="log"></pre>
+<script>
+(()=>{
+const UUID='b8842e9c-72fd-4a59-9f8d-5f3b9e9b5d2a';
+const logEl=document.getElementById('log');
+const log=m=>{logEl.textContent+=`[${new Date().toLocaleTimeString()}] ${m}\n`;};
+const uuidBytes=u=>{const h=u.replaceAll('-','');const a=new Uint8Array(16);for(let i=0;i<16;i++)a[i]=parseInt(h.slice(i*2,i*2+2),16);return a};
+const ipv4=h=>{const p=h.split('.').map(Number);return p.length===4&&p.every(x=>Number.isInteger(x)&&x>=0&&x<=255)?new Uint8Array(p):null};
+const concat=(...ps)=>{const o=new Uint8Array(ps.reduce((s,p)=>s+p.length,0));let n=0;for(const p of ps){o.set(p,n);n+=p.length}return o};
+function req(host,port){const ip=ipv4(host);let typ,addr;if(ip){typ=1;addr=ip}else{const b=new TextEncoder().encode(host);typ=2;addr=concat(new Uint8Array([b.length]),b)}const h=new Uint8Array(22);let o=0;h[o++]=0;h.set(uuidBytes(UUID),o);o+=16;h[o++]=0;h[o++]=1;h[o++]=(port>>8)&255;h[o++]=port&255;h[o++]=typ;return concat(h,addr)}
+function run(host){logEl.textContent='';const port=Number(document.getElementById('port').value);const url=document.getElementById('ws').value.trim();log(`page=${location.href}`);log(`open ${url}`);log(`target ${host}:${port}`);let got=false;let ws;const timer=setTimeout(()=>{if(!got){log('TIMEOUT 12s: WebSocket 仍未收到 VLESS 响应；请同时查看 Clash Mi 核心日志中的目标地址');try{ws.close()}catch{}}},12000);try{ws=new WebSocket(url);ws.binaryType='arraybuffer';ws.onopen=()=>{log('WebSocket OPEN');ws.send(req(host,port));log('VLESS TCP request sent (zero payload)')};ws.onmessage=e=>{got=true;clearTimeout(timer);const b=new Uint8Array(e.data);log(`RX ${b.length} bytes: ${Array.from(b.slice(0,16)).map(x=>x.toString(16).padStart(2,'0')).join(' ')}`);if(b.length>=2&&b[0]===0)log(`VLESS response header OK; addonLen=${b[1]} => upstream TCP likely connected`);else log('Unexpected response; keep Clash Mi log for diagnosis')};ws.onerror=()=>log('WebSocket ERROR');ws.onclose=e=>{clearTimeout(timer);log(`WebSocket CLOSED code=${e.code} reason=${e.reason||'(none)'}`)}}catch(e){clearTimeout(timer);log('EXCEPTION '+(e?.message||String(e)))}}
+document.getElementById('local').onclick=()=>run('127.0.0.1');document.getElementById('wifi').onclick=()=>run('192.168.10.68');document.getElementById('customBtn').onclick=()=>run(document.getElementById('custom').value.trim());
+})();
+</script>
+</main></body></html>
