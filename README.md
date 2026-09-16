@@ -56,11 +56,15 @@ This test build keeps the Maps-share/background path and adds:
 
 - clearer Chinese transport errors;
 - a live `10.7.0.1` transport health indicator that probes the current RemotePairing port and updates automatically while the app is open;
-- app version/build in the status section;
+- location coordinates and Set/Update/Restore controls moved directly below the status block for faster access;
+- app version/build moved to the bottom of the main screen;
 - when a saved pairing record exists, the UI hides **Start Pairing** and shows only **Delete Saved Pairing**, preventing accidental re-pairing;
+- first-launch location permission request, followed by an automatic request to upgrade to **Always** authorization when iOS permits it;
 - clearer runtime guidance when the active TUN does not provide the self-loop;
 - App Shortcuts restored alongside Apple Maps sharing;
 - coordinate fields update automatically after Maps sharing or a Shortcuts location action.
+
+> iOS controls the exact timing of the **Always Location** upgrade prompt. PlaceDrift requests it automatically after the initial location grant, but iOS may defer the second prompt. If that happens, set PlaceDrift to **Always** under Settings → Privacy & Security → Location Services.
 
 ## Apple Maps sharing
 
