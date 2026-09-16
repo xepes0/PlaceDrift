@@ -11,14 +11,30 @@
 "Cancel Pairing" = "取消配对";
 "Delete Saved Pairing" = "删除已保存的配对";
 "After tapping Start Pairing, open Settings › Privacy & Security › Developer Mode › Pair with Host, select PlaceDrift, then enter the PIN shown here." = "点击“开始配对”后，打开“设置”›“隐私与安全性”›“开发者模式”›“与主机配对”，选择 PlaceDrift，然后输入此处显示的 PIN。";
+
+"Maps sharing" = "地图分享";
+"Enable Maps sharing" = "启用地图分享";
+"Share receiver" = "分享接收器";
+"Listening" = "监听中";
+"Stopped" = "已停止";
+"Background" = "后台保持";
+"Active" = "已启用";
+"Requesting Always Location…" = "正在请求“始终”定位权限…";
+"Needs Always Location" = "需要“始终”定位权限";
+"Location permission denied" = "定位权限已拒绝";
+"Location permission restricted" = "定位权限受限制";
+"Location Services disabled" = "定位服务已关闭";
+"Background keep-alive failed" = "后台保持启动失败";
+"Ready for Apple Maps sharing" = "已准备接收 Apple 地图分享";
+"In Apple Maps, choose a place, tap Share, then choose PlaceDrift. The shared location is sent directly to the running CoreDevice session; Shortcuts are not required." = "在 Apple 地图中选择地点，点“分享”，再选择 PlaceDrift。分享的位置会直接发送给正在运行的 CoreDevice 会话，不再需要快捷指令。";
+"To keep PlaceDrift available in the background without the blue location pill, set Location access for PlaceDrift to Always in Settings." = "要让 PlaceDrift 在后台保持可用并避免蓝色定位提示，请在“设置”中把 PlaceDrift 的定位权限设为“始终”。";
+
 "Location" = "位置";
 "Latitude" = "纬度";
 "Longitude" = "经度";
 "Update Location" = "更新位置";
 "Set Location" = "设置位置";
 "Restore Real Location" = "恢复真实位置";
-"Shortcuts" = "快捷指令";
-"You can pass a Shortcuts Location directly to PlaceDrift, or pass latitude and longitude as numbers." = "可以把快捷指令中的“位置”直接传给 PlaceDrift，也可以分别传入纬度和经度。";
 "Runtime requirement" = "运行要求";
 "Keep Clash Mi connected with TUN loopback-address 10.7.0.1. PlaceDrift does not start a VPN." = "请保持 Clash Mi 已连接，并在 TUN 中启用 loopback-address 10.7.0.1。PlaceDrift 本身不会启动 VPN。";
 
@@ -30,15 +46,6 @@
 "Clearing simulated location…" = "正在清除模拟定位…";
 "Discovering this iPhone's RemotePairing service through Clash Mi…" = "正在通过 Clash Mi 查找本机 RemotePairing 服务…";
 "Connecting: Pair Verify → TLS-PSK → RSD → DVT…" = "正在连接：Pair Verify → TLS-PSK → RSD → DVT…";
-"LocationSimulation active. Switch to Maps now to verify." = "模拟定位已启用。现在可切换到地图验证。";
+"LocationSimulation active. Share another place from Maps to switch instantly." = "模拟定位已启用。之后可直接从地图分享其他地点来切换位置。";
 "LocationSimulation cleared" = "模拟定位已清除";
-
-"Set PlaceDrift Location" = "设置 PlaceDrift 位置";
-"Send a Shortcuts location directly to PlaceDrift and start LocationSimulation." = "将快捷指令中的“位置”直接发送到 PlaceDrift，并启动模拟定位。";
-"Set PlaceDrift Coordinates" = "设置 PlaceDrift 坐标";
-"Pass latitude and longitude to PlaceDrift and start LocationSimulation." = "将纬度和经度传给 PlaceDrift，并启动模拟定位。";
-"Clear PlaceDrift LocationSimulation and restore the real device location." = "清除 PlaceDrift 模拟定位并恢复设备真实位置。";
-"Pair PlaceDrift with This iPhone" = "将 PlaceDrift 与此 iPhone 配对";
-"Open PlaceDrift and begin CoreDevice RemotePairing." = "打开 PlaceDrift 并开始 CoreDevice RemotePairing 配对。";
 "Invalid coordinates." = "坐标无效。";
-"The selected location has no coordinates." = "所选位置没有可用坐标。";
