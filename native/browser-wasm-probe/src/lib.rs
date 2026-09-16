@@ -68,7 +68,7 @@ export function wlocWsOpen(url) {
 
     const ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
-    const entry = { ws, queue: [], waiters: [], opened: false };
+    const entry = { ws, queue: [], waiters: [], opened: false, sawError: false };
     registry().set(id, entry);
 
     ws.onopen = () => {
@@ -87,13 +87,16 @@ export function wlocWsOpen(url) {
     };
 
     ws.onerror = () => {
-      const error = new Error('WLOC WebSocket transport error');
+      entry.sawError = true;
+      const error = new Error('WLOC WebSocket transport error before OPEN');
       if (!entry.opened) reject(error);
-      rejectWaiters(entry, error);
+      // If the socket was already open, wait for onclose so callers get the
+      // close code/reason instead of losing the useful downstream-dial detail.
     };
 
     ws.onclose = (event) => {
-      rejectWaiters(entry, new Error(`WLOC WebSocket closed code=${event.code}`));
+      const suffix = entry.sawError ? ', sawError=true' : '';
+      rejectWaiters(entry, new Error(`WLOC WebSocket closed code=${event.code} reason=${event.reason || '<empty>'}${suffix}`));
       registry().delete(id);
     };
   });
@@ -219,8 +222,16 @@ export function wlocWsClose(id) {
             Ok(())
         }
 
-        fn io_error(value: JsValue) -> io::Error {
-            io::Error::new(io::ErrorKind::ConnectionAborted, js_error_string(value))
+        fn io_error(&self, value: JsValue) -> io::Error {
+            io::Error::new(
+                io::ErrorKind::ConnectionAborted,
+                format!(
+                    "{}; vlessResponseHeaderDone={}; queuedBytes={}",
+                    js_error_string(value),
+                    self.response_header_done,
+                    self.incoming.len()
+                ),
+            )
         }
     }
 
@@ -255,7 +266,10 @@ export function wlocWsClose(id) {
                 if self.closed {
                     return Poll::Ready(Err(io::Error::new(
                         io::ErrorKind::BrokenPipe,
-                        "WLOC WebSocket transport is closed",
+                        format!(
+                            "WLOC WebSocket transport is closed; vlessResponseHeaderDone={}",
+                            self.response_header_done
+                        ),
                     )));
                 }
 
@@ -272,8 +286,9 @@ export function wlocWsClose(id) {
                     Poll::Pending => return Poll::Pending,
                     Poll::Ready(Err(error)) => {
                         self.receive = None;
+                        let io_error = self.io_error(error);
                         self.closed = true;
-                        return Poll::Ready(Err(Self::io_error(error)));
+                        return Poll::Ready(Err(io_error));
                     }
                     Poll::Ready(Ok(value)) => {
                         self.receive = None;
@@ -303,7 +318,7 @@ export function wlocWsClose(id) {
             }
             match js_ws_send(self.handle, buf) {
                 Ok(()) => Poll::Ready(Ok(buf.len())),
-                Err(error) => Poll::Ready(Err(Self::io_error(error))),
+                Err(error) => Poll::Ready(Err(self.io_error(error))),
             }
         }
 
@@ -334,7 +349,7 @@ export function wlocWsClose(id) {
         }
 
         let mut pairing_file = RpPairingFile::from_bytes(&pairing_record)
-            .map_err(|error| js_error(format!("Could not parse pairing record: {error}")))?;
+            .map_err(|error| js_error(format!("Could not parse pairing record: {error:?}")))?;
         let bridge_url = bridge_url.unwrap_or_else(|| DEFAULT_BRIDGE_URL.to_string());
         let transport = VlessWebSocketTransport::connect(&bridge_url, remote_pairing_port)
             .await
@@ -346,11 +361,11 @@ export function wlocWsClose(id) {
         client
             .attempt_pair_verify()
             .await
-            .map_err(|error| js_error(format!("attemptPairVerify failed: {error}")))?;
+            .map_err(|error| js_error(format!("attemptPairVerify failed: {error:?}")))?;
         client
             .validate_pairing(&mut pairing_file)
             .await
-            .map_err(|error| js_error(format!("Pair Verify failed: {error}")))?;
+            .map_err(|error| js_error(format!("Pair Verify failed: {error:?}")))?;
 
         Ok(serde_json::json!({
             "status": "PAIR_VERIFY_OK",
