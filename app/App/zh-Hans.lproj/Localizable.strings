@@ -51,7 +51,7 @@
 "The selected location has no coordinates." = "所选位置没有可用坐标。";
 
 "Runtime requirement" = "运行要求";
-"Keep a compatible TUN/proxy app connected and enable loopback-address 10.7.0.1 in its TUN configuration. PlaceDrift does not start a VPN." = "请保持支持此功能的 TUN/代理应用处于连接状态，并确保在 TUN 配置中启用 loopback-address 10.7.0.1。PlaceDrift 本身不会启动 VPN。";
+"Enable loopback-address 10.7.0.1 in the active TUN configuration. Tested working: LocalDevVPN, Clash Mi, and Clash. Surge, Egern, and other VPN/TUN apps are pending verification. PlaceDrift does not start a VPN." = "请在当前 TUN 配置中启用 loopback-address 10.7.0.1。已实测可用：LocalDevVPN、Clash Mi、Clash。Surge、Egern 及其他 VPN/TUN 工具后续测试。PlaceDrift 本身不会启动 VPN。";
 
 "Ready" = "就绪";
 "Failed" = "失败";
@@ -66,9 +66,9 @@
 "LocationSimulation cleared" = "模拟定位已清除";
 "Invalid coordinates." = "坐标无效。";
 
-"RemotePairing connection timed out." = "RemotePairing 连接超时。请确保当前 TUN 已启用 loopback-address 10.7.0.1，并保持支持该功能的 TUN/代理应用处于连接状态。";
-"Could not reach RemotePairing through 10.7.0.1." = "无法通过 10.7.0.1 连接 RemotePairing。请确保当前 TUN 已启用 loopback-address 10.7.0.1，并保持支持该功能的 TUN/代理应用处于连接状态。";
-"No matching RemotePairing service was found. Keep Clash Mi connected with loopback-address 10.7.0.1." = "未找到匹配的 RemotePairing 服务。请确认本地网络权限已允许，并确保当前 TUN 已启用 loopback-address 10.7.0.1。";
+"RemotePairing connection timed out." = "RemotePairing 连接超时。请确保当前 TUN 已启用 loopback-address 10.7.0.1。已实测支持：LocalDevVPN、Clash Mi、Clash。";
+"Could not reach RemotePairing through 10.7.0.1." = "无法通过 10.7.0.1 连接 RemotePairing。请确保当前 TUN 已启用 loopback-address 10.7.0.1。已实测支持：LocalDevVPN、Clash Mi、Clash。";
+"No matching RemotePairing service was found. Keep Clash Mi connected with loopback-address 10.7.0.1." = "未找到匹配的 RemotePairing 服务。请确认本地网络权限已允许，并确保当前 TUN 已启用 loopback-address 10.7.0.1。已实测支持：LocalDevVPN、Clash Mi、Clash。";
 "Pair verify timed out." = "Pair Verify 超时。请确认 TUN 自环仍然可用后重试。";
 "Pair verify failed." = "Pair Verify 失败。请确认配对记录有效，并保持 TUN 自环可用。";
 "Saved pairing is no longer valid." = "已保存的配对记录已失效，请重新配对此 iPhone。";
