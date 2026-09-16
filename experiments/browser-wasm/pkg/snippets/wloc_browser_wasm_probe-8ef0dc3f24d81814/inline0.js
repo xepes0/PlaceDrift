@@ -20,7 +20,7 @@ export function wlocWsOpen(url) {
 
     const ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
-    const entry = { ws, queue: [], waiters: [], opened: false };
+    const entry = { ws, queue: [], waiters: [], opened: false, sawError: false };
     registry().set(id, entry);
 
     ws.onopen = () => {
@@ -39,13 +39,16 @@ export function wlocWsOpen(url) {
     };
 
     ws.onerror = () => {
-      const error = new Error('WLOC WebSocket transport error');
+      entry.sawError = true;
+      const error = new Error('WLOC WebSocket transport error before OPEN');
       if (!entry.opened) reject(error);
-      rejectWaiters(entry, error);
+      // If the socket was already open, wait for onclose so callers get the
+      // close code/reason instead of losing the useful downstream-dial detail.
     };
 
     ws.onclose = (event) => {
-      rejectWaiters(entry, new Error(`WLOC WebSocket closed code=${event.code}`));
+      const suffix = entry.sawError ? ', sawError=true' : '';
+      rejectWaiters(entry, new Error(`WLOC WebSocket closed code=${event.code} reason=${event.reason || '<empty>'}${suffix}`));
       registry().delete(id);
     };
   });
