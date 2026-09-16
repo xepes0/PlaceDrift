@@ -5,7 +5,10 @@
 
 const DEFAULT_REMOTE_PAIRING_PORT = 49152;
 const BRIDGE_URL = "ws://127.0.0.1:17890/wloc";
-const MODULE_URL = "https://raw.githack.com/xepes0/WLOC-CoreDevice-Lab/browser-wasm/experiments/browser-wasm/pkg/wloc_browser_wasm_probe.js";
+// Pin the generated JS + inline snippet + WASM to one immutable commit so
+// raw.githack cannot mix a fresh wrapper with a cached older .wasm binary.
+const BUNDLE_COMMIT = "923edae7ef482e6788600addc1a1fa3b02bd84d5";
+const MODULE_URL = `https://raw.githack.com/xepes0/WLOC-CoreDevice-Lab/${BUNDLE_COMMIT}/experiments/browser-wasm/pkg/wloc_browser_wasm_probe.js`;
 const OVERLAY_ID = "wloc-pair-verify-overlay";
 
 let finished = false;
@@ -43,8 +46,11 @@ try {
 
   overlay.innerHTML = `
     <div style="font-size:22px;font-weight:700;margin-bottom:8px">WLOC Pair Verify</div>
-    <div style="font-size:14px;color:#555;line-height:1.4;margin-bottom:14px">
+    <div style="font-size:14px;color:#555;line-height:1.4;margin-bottom:8px">
       Safari → Clash Mi VLESS/WebSocket → 127.0.0.1:&lt;RemotePairing port&gt; → CoreDevice Pair Verify
+    </div>
+    <div style="font-size:12px;color:#888;word-break:break-all;margin-bottom:14px">
+      bundle ${BUNDLE_COMMIT.slice(0, 12)}
     </div>
     <label style="display:block;font-size:13px;color:#666;margin-bottom:4px">RemotePairing port</label>
     <input id="wloc-rp-port" inputmode="numeric" value="${DEFAULT_REMOTE_PAIRING_PORT}"
@@ -92,7 +98,7 @@ try {
     nameBox.textContent = `${selectedFile.name} (${selectedFile.size} bytes)`;
     runButton.disabled = false;
     runButton.style.opacity = "1";
-    setLog("Pairing record 已在本机选择，尚未发送。点击 Run Pair Verify 开始。\nBridge: " + BRIDGE_URL);
+    setLog("Pairing record 已在本机选择，尚未发送。点击 Run Pair Verify 开始。\nBridge: " + BRIDGE_URL + "\nBundle: " + BUNDLE_COMMIT.slice(0, 12));
   };
 
   cancelButton.onclick = () => {
@@ -118,8 +124,8 @@ try {
       setLog(`1/4 读取本地 pairing record…\n${selectedFile.name}`);
       const bytes = new Uint8Array(await selectedFile.arrayBuffer());
 
-      setLog(`2/4 加载 CoreDevice WASM…\n${bytes.length} bytes`);
-      const wasm = await import(MODULE_URL + `?v=${Date.now()}`);
+      setLog(`2/4 加载 CoreDevice WASM…\n${bytes.length} bytes\nBundle ${BUNDLE_COMMIT.slice(0, 12)}`);
+      const wasm = await import(MODULE_URL);
       await wasm.default();
 
       setLog(`3/4 打开 ${BRIDGE_URL}\n目标 127.0.0.1:${port}\n等待 RemotePairing / Pair Verify…`);
@@ -132,6 +138,7 @@ try {
         status: "ERROR",
         stage: "pair-verify",
         remotePairingPort: port,
+        bundleCommit: BUNDLE_COMMIT,
         message: messageOf(error),
         stack: error && error.stack ? error.stack : ""
       };
