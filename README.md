@@ -15,13 +15,27 @@ PlaceDrift
   → LocationSimulation
 ```
 
-PlaceDrift does not create or own a VPN. The product goal is to keep an existing proxy/VPN app such as Clash Mi as the only TUN owner.
+PlaceDrift does not create or own a VPN. A compatible TUN/proxy app provides the self-device loopback transport.
 
 ## Current test status
 
-The RemotePairing/CoreDevice/LocationSimulation stack has been validated on physical iOS 27 hardware with a LocalDevVPN-compatible self-device path.
+The full PlaceDrift path has been validated on physical iOS 27 hardware with Clash Mi configured with `loopback-address: 10.7.0.1`:
 
-The first PlaceDrift build is currently validating whether Clash Mi's `loopback-address: 10.7.0.1` can provide the same self-device transport on iOS. On the first physical PlaceDrift test, pairing, Apple Maps sharing and RemotePairing service discovery succeeded, but the TCP connection to `10.7.0.1:<RemotePairing port>` timed out before Pair Verify. This transport issue is under active investigation.
+```text
+Apple Maps / manual coordinates
+  → PlaceDrift
+  → Clash Mi TUN loopback 10.7.0.1
+  → RemotePairing
+  → Pair Verify
+  → TLS-PSK
+  → RSD
+  → DVT
+  → LocationSimulation
+```
+
+Pairing, Apple Maps sharing, RemotePairing discovery, simulated-location activation and subsequent location switching have all been confirmed on-device.
+
+If the active VPN/TUN app does not provide an equivalent self-device loopback path, PlaceDrift can discover the RemotePairing service but the TCP connection to `10.7.0.1:<RemotePairing port>` will time out before Pair Verify. In that case, switch back to a compatible TUN configuration instead of deleting the saved pairing record.
 
 ## Features
 
@@ -40,9 +54,9 @@ The first PlaceDrift build is currently validating whether Clash Mi's `loopback-
   - `placedrift://clear`
   - `placedrift://pair`
 
-## Clash Mi test configuration
+## Clash Mi configuration
 
-The current Clash Mi experiment uses:
+The validated Clash Mi configuration includes:
 
 ```yaml
 tun:
@@ -50,7 +64,9 @@ tun:
     - 10.7.0.1
 ```
 
-Do not treat this route as universally working on iOS yet. Pairing state is independent of transport state, so a transport failure does not require pairing again.
+Keep Clash Mi connected while using PlaceDrift. PlaceDrift itself does not occupy the VPN slot.
+
+Pairing state is independent of transport state. If PlaceDrift reports a RemotePairing connection timeout after switching VPN/TUN apps, restore a compatible `loopback-address: 10.7.0.1` TUN setup and retry; pairing again is normally unnecessary.
 
 ## Build
 
