@@ -15,6 +15,7 @@ final class TransportHealthMonitor: NSObject, ObservableObject {
     @Published private(set) var state: State = .unknown
 
     private let targetHost = NWEndpoint.Host("10.7.0.1")
+    private let probeQueue = DispatchQueue(label: "com.xepes.placedrift.transport-probe", qos: .utility)
     private var browser: NetServiceBrowser?
     private var services: [NetService] = []
     private var connections: [NWConnection] = []
@@ -25,10 +26,10 @@ final class TransportHealthMonitor: NSObject, ObservableObject {
     func refresh() {
         stopResources()
 
-        let previousState = state
-        if previousState != .connected {
-            state = .checking
-        }
+        // Do not keep showing a stale green state while a new probe is running.
+        // Some TUN implementations can report the synthetic TCP socket as ready
+        // before the policy engine has rejected the flow.
+        state = .checking
 
         sawResolvedPort = false
         let currentRunID = UUID()
@@ -41,7 +42,7 @@ final class TransportHealthMonitor: NSObject, ObservableObject {
         browser.searchForServices(ofType: "_remotepairing._tcp.", inDomain: "local.")
 
         timeoutTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(3))
+            try? await Task.sleep(for: .seconds(4))
             guard
                 !Task.isCancelled,
                 let self,
@@ -71,19 +72,45 @@ final class TransportHealthMonitor: NSObject, ObservableObject {
 
         sawResolvedPort = true
         let expectedRunID = runID
-        let connection = NWConnection(host: targetHost, port: port, using: .tcp)
+
+        let tcp = NWProtocolTCP.Options()
+        tcp.enableKeepalive = true
+        tcp.keepaliveIdle = 1
+        tcp.keepaliveInterval = 1
+        tcp.keepaliveCount = 1
+        let parameters = NWParameters(tls: nil, tcp: tcp)
+
+        let connection = NWConnection(host: targetHost, port: port, using: parameters)
         connections.append(connection)
 
+        // NWConnection.ready alone is not enough for a synthetic TUN endpoint.
+        // Loon/other user-space TCP stacks may briefly acknowledge the local
+        // socket and only deliver the REJECT/RST immediately afterwards. Keep
+        // the socket alive for a short validation window and only turn green
+        // if it remains ready for the full window.
+        var remainsReady = false
         connection.stateUpdateHandler = { [weak self, weak connection] connectionState in
-            guard case .ready = connectionState else { return }
-            connection?.cancel()
-            Task { @MainActor [weak self] in
-                guard let self, self.runID == expectedRunID else { return }
-                self.finish(.connected)
+            switch connectionState {
+            case .ready:
+                remainsReady = true
+                self?.probeQueue.asyncAfter(deadline: .now() + 1.0) { [weak self, weak connection] in
+                    guard remainsReady else { return }
+                    connection?.cancel()
+                    Task { @MainActor [weak self] in
+                        guard let self, self.runID == expectedRunID else { return }
+                        self.finish(.connected)
+                    }
+                }
+
+            case .waiting, .failed, .cancelled:
+                remainsReady = false
+
+            default:
+                break
             }
         }
 
-        connection.start(queue: DispatchQueue.global(qos: .utility))
+        connection.start(queue: probeQueue)
     }
 
     private func finish(_ newState: State) {
