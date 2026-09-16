@@ -143,7 +143,7 @@ struct PlaceDriftAppView: View {
                 }
 
                 Section("Runtime requirement") {
-                    Text("Keep a compatible TUN/proxy app connected and enable loopback-address 10.7.0.1 in its TUN configuration. PlaceDrift does not start a VPN.")
+                    Text("Enable loopback-address 10.7.0.1 in the active TUN configuration. Tested working: LocalDevVPN, Clash Mi, and Clash. Surge, Egern, and other VPN/TUN apps are pending verification. PlaceDrift does not start a VPN.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
