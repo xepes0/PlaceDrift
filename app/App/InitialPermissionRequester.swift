@@ -1,5 +1,6 @@
 import CoreLocation
 import Foundation
+import SwiftUI
 
 @MainActor
 final class InitialPermissionRequester: NSObject, ObservableObject, @preconcurrency CLLocationManagerDelegate {
