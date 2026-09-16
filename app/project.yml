@@ -18,6 +18,10 @@ targets:
     platform: iOS
     sources:
       - path: App
+      - path: Shared
+    dependencies:
+      - target: PlaceDriftShare
+        embed: true
     settings:
       base:
         GENERATE_INFOPLIST_FILE: NO
@@ -32,3 +36,20 @@ targets:
         SWIFT_VERSION: "5.0"
     scheme:
       gatherCoverageData: false
+
+  PlaceDriftShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+      - path: Shared
+    settings:
+      base:
+        APPLICATION_EXTENSION_API_ONLY: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: ShareExtension/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.xepes.placedrift.share
+        PRODUCT_NAME: PlaceDriftShare
+        SKIP_INSTALL: YES
+        SWIFT_STRICT_CONCURRENCY: minimal
+        SWIFT_VERSION: "5.0"

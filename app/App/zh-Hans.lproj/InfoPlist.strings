@@ -1,2 +1,4 @@
 "CFBundleDisplayName" = "PlaceDrift";
 "NSLocalNetworkUsageDescription" = "PlaceDrift 需要访问本机局域网中的 CoreDevice 配对服务，以设置和恢复模拟位置。";
+"NSLocationWhenInUseUsageDescription" = "PlaceDrift 使用定位服务活动，让 CoreDevice 模拟定位会话在 App 进入后台后继续运行。";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "PlaceDrift 仅使用“始终”定位权限来保持 CoreDevice 模拟定位会话和地图分享通道在后台可用，不会保存你的真实坐标。";

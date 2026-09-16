@@ -6,6 +6,12 @@ struct PlaceDriftAppView: View {
     @State private var latitude = "34.052235"
     @State private var longitude = "-118.243683"
 
+    private var versionText: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+        return "\(version) (\(build))"
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -20,13 +26,15 @@ struct PlaceDriftAppView: View {
                         "Engine",
                         value: NSLocalizedString(controller.status, comment: "CoreDevice engine status")
                     )
+                    LabeledContent("Transport", value: "10.7.0.1")
+                    LabeledContent("Version", value: versionText)
 
                     if controller.isLocationActive {
                         Label("LocationSimulation active", systemImage: "location.fill")
                     }
 
                     if let error = controller.lastError {
-                        Text(NSLocalizedString(error, comment: "CoreDevice error"))
+                        Text(NSLocalizedString(error, comment: "CoreDevice runtime error"))
                             .foregroundStyle(.red)
                             .font(.footnote)
                     }
@@ -65,6 +73,44 @@ struct PlaceDriftAppView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Maps sharing") {
+                    Toggle(
+                        "Enable Maps sharing",
+                        isOn: Binding(
+                            get: { controller.isMapSharingEnabled },
+                            set: { controller.setMapSharingEnabled($0) }
+                        )
+                    )
+                    .disabled(!controller.hasPairingRecord)
+
+                    LabeledContent(
+                        "Share receiver",
+                        value: controller.shareBridgeReady
+                            ? NSLocalizedString("Listening", comment: "Share bridge ready state")
+                            : NSLocalizedString("Stopped", comment: "Share bridge stopped state")
+                    )
+
+                    LabeledContent(
+                        "Background",
+                        value: NSLocalizedString(backgroundStateText, comment: "Background keepalive state")
+                    )
+
+                    if controller.mapSharingReady {
+                        Label("Ready for Apple Maps sharing", systemImage: "square.and.arrow.up.fill")
+                            .foregroundStyle(.green)
+                    }
+
+                    Text("In Apple Maps, choose a place, tap Share, then choose PlaceDrift. The shared location is sent directly to the running CoreDevice session; Shortcuts are not required.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    if controller.backgroundKeepAliveState == .needsAlwaysAuthorization {
+                        Text("To keep PlaceDrift available in the background without the blue location pill, set Location access for PlaceDrift to Always in Settings.")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                    }
+                }
+
                 Section("Location") {
                     TextField("Latitude", text: $latitude)
                         .keyboardType(.numbersAndPunctuation)
@@ -84,16 +130,20 @@ struct PlaceDriftAppView: View {
                         controller.clearLocation()
                     }
                     .disabled(!controller.isLocationActive && !controller.isDiscovering)
+
+                    Text("Apple Maps sharing updates these coordinates automatically.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("Shortcuts") {
-                    Text("You can pass a Shortcuts Location directly to PlaceDrift, or pass latitude and longitude as numbers.")
+                    Text("You can pass a Shortcuts Location directly to PlaceDrift, pass latitude and longitude, or restore the real location.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
 
                 Section("Runtime requirement") {
-                    Text("Keep Clash Mi connected with TUN loopback-address 10.7.0.1. PlaceDrift does not start a VPN.")
+                    Text("Keep a compatible TUN/proxy app connected and enable loopback-address 10.7.0.1 in its TUN configuration. PlaceDrift does not start a VPN.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -111,6 +161,27 @@ struct PlaceDriftAppView: View {
 
             self.latitude = String(latitude)
             self.longitude = String(longitude)
+        }
+    }
+
+    private var backgroundStateText: String {
+        switch controller.backgroundKeepAliveState {
+        case .idle, .stopped:
+            return "Stopped"
+        case .requestingAlwaysAuthorization:
+            return "Requesting Always Location…"
+        case .needsAlwaysAuthorization:
+            return "Needs Always Location"
+        case .active:
+            return "Active"
+        case .denied:
+            return "Location permission denied"
+        case .restricted:
+            return "Location permission restricted"
+        case .servicesDisabled:
+            return "Location Services disabled"
+        case .failed:
+            return "Background keep-alive failed"
         }
     }
 

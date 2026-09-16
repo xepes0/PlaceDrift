@@ -5,6 +5,8 @@ import UIKit
 
 @MainActor
 final class CoreDeviceController: NSObject, ObservableObject {
+    private static let mapSharingPreferenceKey = "placedrift.maps-sharing.enabled"
+
     private struct PendingLocation {
         let record: Data
         let latitude: Double
@@ -24,9 +26,14 @@ final class CoreDeviceController: NSObject, ObservableObject {
     @Published private(set) var isDiscovering = false
     @Published private(set) var isLocationActive = false
     @Published private(set) var lastError: String?
+    @Published private(set) var isMapSharingEnabled = true
+    @Published private(set) var shareBridgeReady = false
+    @Published private(set) var backgroundKeepAliveState = BackgroundLocationKeepAlive.State.idle
 
     private let publisher = PairingBonjourPublisher()
     private let browser = NetServiceBrowser()
+    private let backgroundKeepAlive = BackgroundLocationKeepAlive()
+    private let shareBridge = PlaceDriftShareBridge()
     private var services: [NetService] = []
     private var discoveryTimeout: Task<Void, Never>?
     private var pendingLocation: PendingLocation?
@@ -38,22 +45,64 @@ final class CoreDeviceController: NSObject, ObservableObject {
 
     override init() {
         super.init()
+
+        isMapSharingEnabled = UserDefaults.standard.object(forKey: Self.mapSharingPreferenceKey) as? Bool ?? true
         browser.delegate = self
         browser.includesPeerToPeer = true
+
         publisher.onPublished = { [weak self] in
             self?.status = "Pairable host published. Open Settings › Privacy & Security › Developer Mode › Pair with Host."
         }
         publisher.onFailure = { [weak self] in
             self?.fail("Bonjour publish failed. Allow Local Network access and try again.")
         }
+
+        backgroundKeepAliveState = backgroundKeepAlive.state
+        backgroundKeepAlive.onStateChange = { [weak self] state in
+            self?.backgroundKeepAliveState = state
+        }
+
+        shareBridge.onReadyChange = { [weak self] ready in
+            Task { @MainActor in
+                self?.shareBridgeReady = ready
+            }
+        }
+        shareBridge.onLocation = { [weak self] latitude, longitude in
+            Task { @MainActor in
+                guard let self else { return }
+                NotificationCenter.default.post(
+                    name: .placeDriftSetLocation,
+                    object: nil,
+                    userInfo: ["latitude": latitude, "longitude": longitude]
+                )
+                self.setLocation(latitude: latitude, longitude: longitude)
+            }
+        }
+
+        reconcileMapSharing()
     }
 
     var canStartLocation: Bool {
         hasPairingRecord && !isPairing && !isDiscovering && locationSession == nil
     }
 
+    var mapSharingReady: Bool {
+        hasPairingRecord
+            && isMapSharingEnabled
+            && shareBridgeReady
+            && backgroundKeepAliveState == .active
+    }
+
     func refreshPairingState() {
         hasPairingRecord = PairingRecordStore.load() != nil
+        reconcileMapSharing()
+    }
+
+    func setMapSharingEnabled(_ enabled: Bool) {
+        guard isMapSharingEnabled != enabled else { return }
+        isMapSharingEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: Self.mapSharingPreferenceKey)
+        reconcileMapSharing()
     }
 
     func resetPairing() {
@@ -63,6 +112,7 @@ final class CoreDeviceController: NSObject, ObservableObject {
         pairingPIN = nil
         status = "Pairing record removed"
         lastError = nil
+        reconcileMapSharing()
     }
 
     func startPairing() {
@@ -124,6 +174,7 @@ final class CoreDeviceController: NSObject, ObservableObject {
         }
 
         if let locationSession, isLocationActive {
+            backgroundKeepAlive.start()
             guard placedrift_location_session_update(locationSession, latitude, longitude) == 0 else {
                 fail("Could not update the active location.")
                 return
@@ -138,6 +189,7 @@ final class CoreDeviceController: NSObject, ObservableObject {
         }
         guard !isDiscovering, locationSession == nil else { return }
 
+        backgroundKeepAlive.start()
         pendingLocation = PendingLocation(record: record, latitude: latitude, longitude: longitude)
         pairingPIN = nil
         lastError = nil
@@ -149,6 +201,7 @@ final class CoreDeviceController: NSObject, ObservableObject {
         pendingLocation = nil
         guard let locationSession else {
             status = "No active simulated location"
+            reconcileBackgroundKeepAlive()
             return
         }
         status = "Clearing simulated location…"
@@ -171,6 +224,7 @@ final class CoreDeviceController: NSObject, ObservableObject {
                 pairingPIN = nil
                 status = "Paired: \(name.isEmpty ? "iPhone" : name) \(model)"
                 lastError = nil
+                reconcileMapSharing()
             } catch {
                 fail("Pairing succeeded but Keychain save failed: \(error.localizedDescription)")
             }
@@ -194,6 +248,7 @@ final class CoreDeviceController: NSObject, ObservableObject {
         stopDiscovery()
         isDiscovering = true
         status = "Discovering this iPhone's RemotePairing service through Clash Mi…"
+        reconcileBackgroundKeepAlive()
         browser.delegate = self
         browser.searchForServices(ofType: "_remotepairing._tcp.", inDomain: "local.")
 
@@ -203,6 +258,7 @@ final class CoreDeviceController: NSObject, ObservableObject {
             self.stopDiscovery()
             self.pendingLocation = nil
             self.fail("No matching RemotePairing service was found. Keep Clash Mi connected with loopback-address 10.7.0.1.")
+            self.reconcileBackgroundKeepAlive()
         }
     }
 
@@ -246,13 +302,14 @@ final class CoreDeviceController: NSObject, ObservableObject {
     private func runLocationSession(pending: PendingLocation, remote: RemoteService) {
         guard let session = placedrift_location_session_create() else {
             fail("Could not create location engine.")
+            reconcileBackgroundKeepAlive()
             return
         }
 
         locationSession = session
         isLocationActive = false
         status = "Connecting: Pair Verify → TLS-PSK → RSD → DVT…"
-        beginBackgroundTask(name: "PlaceDrift location")
+        backgroundKeepAlive.start()
         let runID = UUID()
         locationRunID = runID
         let sessionBits = UInt(bitPattern: session)
@@ -303,7 +360,8 @@ final class CoreDeviceController: NSObject, ObservableObject {
     fileprivate func nativeLocationStarted() {
         guard locationSession != nil else { return }
         isLocationActive = true
-        status = "LocationSimulation active. Switch to Maps now to verify."
+        status = "LocationSimulation active. Share another place from Maps to switch instantly."
+        reconcileBackgroundKeepAlive()
     }
 
     private func finishLocation(_ outcome: LocationOutcome, runID: UUID) {
@@ -312,7 +370,6 @@ final class CoreDeviceController: NSObject, ObservableObject {
         locationSession = nil
         isLocationActive = false
         pendingLocation = nil
-        endBackgroundTask()
 
         switch outcome {
         case .success:
@@ -320,6 +377,28 @@ final class CoreDeviceController: NSObject, ObservableObject {
             lastError = nil
         case .failure(let message):
             fail(message)
+        }
+
+        reconcileBackgroundKeepAlive()
+    }
+
+    private func reconcileMapSharing() {
+        if hasPairingRecord && isMapSharingEnabled {
+            shareBridge.start()
+        } else {
+            shareBridge.stop()
+        }
+        reconcileBackgroundKeepAlive()
+    }
+
+    private func reconcileBackgroundKeepAlive() {
+        let needsBackgroundExecution = hasPairingRecord
+            && (isMapSharingEnabled || isDiscovering || locationSession != nil)
+
+        if needsBackgroundExecution {
+            backgroundKeepAlive.start()
+        } else {
+            backgroundKeepAlive.stop()
         }
     }
 
@@ -348,9 +427,6 @@ final class CoreDeviceController: NSObject, ObservableObject {
                 guard let self else { return }
                 if let pairingSession = self.pairingSession {
                     placedrift_pairing_session_cancel(pairingSession)
-                }
-                if let locationSession = self.locationSession {
-                    placedrift_location_session_cancel(locationSession)
                 }
                 self.endBackgroundTask()
             }
