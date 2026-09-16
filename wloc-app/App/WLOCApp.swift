@@ -7,6 +7,9 @@ struct WLOCApp: App {
     var body: some Scene {
         WindowGroup {
             WLOCAppView(controller: controller)
+                .onAppear {
+                    WLOCShortcutRouter.attach(controller)
+                }
                 .onOpenURL { url in
                     WLOCDeepLinkHandler.handle(url, controller: controller)
                 }
