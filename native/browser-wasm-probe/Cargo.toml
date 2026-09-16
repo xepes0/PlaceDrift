@@ -9,3 +9,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 idevice = { git = "https://github.com/jkcoxson/idevice.git", rev = "2bc58aaea40c9ced0167c8e7b512ee13c34c760f", default-features = false, features = ["wasm", "dvt", "location_simulation", "remote_pairing", "rsd", "tunnel_tcp_stack"] }
+js-sys = "0.3"
+serde_json = "1"
+tokio = { version = "1", features = ["io-util"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
