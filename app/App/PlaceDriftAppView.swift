@@ -26,7 +26,7 @@ struct PlaceDriftAppView: View {
                     }
 
                     if let error = controller.lastError {
-                        Text(error)
+                        Text(NSLocalizedString(error, comment: "CoreDevice error"))
                             .foregroundStyle(.red)
                             .font(.footnote)
                     }
