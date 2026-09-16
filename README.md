@@ -3,7 +3,7 @@
 PlaceDrift is an iOS CoreDevice location-control app for iOS 27+.
 
 ```text
-Apple Maps / Shortcuts / manual coordinates
+Apple Maps / Amap / Baidu Maps / Shortcuts / manual coordinates
   → PlaceDrift
   → compatible TUN self-loop `10.7.0.1`
   → RemotePairing
@@ -48,6 +48,8 @@ Validated on-device:
 - Manual latitude/longitude updates while the CoreDevice session stays active.
 - Restore real location.
 
+Amap and Baidu Maps sharing support is implemented in build 6 and is pending physical-device regression testing.
+
 If the active VPN/TUN app does not provide an equivalent self-loop, PlaceDrift may still discover `_remotepairing._tcp` but the TCP connection to `10.7.0.1:<RemotePairing port>` will time out before Pair Verify. In that case, restore a compatible TUN configuration; deleting the saved pairing record is normally unnecessary.
 
 ## PlaceDrift 0.2.1
@@ -61,20 +63,31 @@ This test build keeps the Maps-share/background path and adds:
 - when a saved pairing record exists, the UI hides **Start Pairing** and shows only **Delete Saved Pairing**, preventing accidental re-pairing;
 - first-launch location permission request, followed by an automatic request to upgrade to **Always** authorization when iOS permits it;
 - clearer runtime guidance when the active TUN does not provide the self-loop;
-- App Shortcuts restored alongside Apple Maps sharing;
-- coordinate fields update automatically after Maps sharing or a Shortcuts location action.
+- App Shortcuts restored alongside map sharing;
+- coordinate fields update automatically after map sharing or a Shortcuts location action;
+- build 6 adds Apple Maps + Amap + Baidu Maps share-link parsing in the Share Extension.
 
 > iOS controls the exact timing of the **Always Location** upgrade prompt. PlaceDrift requests it automatically after the initial location grant, but iOS may defer the second prompt. If that happens, set PlaceDrift to **Always** under Settings → Privacy & Security → Location Services.
 
-## Apple Maps sharing
+## Map sharing
 
 1. Pair PlaceDrift with the iPhone.
 2. Leave **Enable Maps sharing** on.
 3. Grant PlaceDrift **Always** location access when requested. It is used to keep the CoreDevice session and local share receiver available in the background; PlaceDrift does not store the real coordinates delivered by Core Location.
 4. Keep a compatible TUN/proxy app connected with `loopback-address: 10.7.0.1` enabled.
-5. In Apple Maps, choose a place and use **Share → PlaceDrift**.
+5. In a supported map app, choose a place and use **Share → PlaceDrift**.
 
-The embedded `PlaceDriftShare.appex` extracts coordinates from shared Maps content and forwards them over a loopback-only bridge to the running PlaceDrift session. iOS 26/27 `https://maps.apple/p/...` links are handled by resolving the expanded coordinate URL.
+Supported parser paths in build 6:
+
+- **Apple Maps** — direct coordinate URLs and expanded `maps.apple` share links.
+- **Amap / 高德地图** — `p=`, `q=`, `lnglat=`, and `position=` coordinate forms, including short links after redirect expansion. GCJ-02 coordinates are converted to WGS-84 before LocationSimulation.
+- **Baidu Maps / 百度地图** — direct `location=` / `latlng=` forms, Baidu BD09MC `@x,y` map URLs, and page payloads exposing BD09MC `x/y` values. BD-09 / BD09MC coordinates are converted to WGS-84 before LocationSimulation.
+
+The Amap and Baidu parsing rules were adapted from the mature parsing logic previously used by the WLOC project, while keeping PlaceDrift's CoreDevice transport fully independent.
+
+Some Baidu short links, especially POIs whose coordinates are only produced by Baidu's page scripts, may not expose enough coordinate data to a background URL request. These cases still need device testing and may require a later WebKit-based fallback.
+
+The embedded `PlaceDriftShare.appex` extracts coordinates from shared map content and forwards them over a loopback-only bridge to the running PlaceDrift session.
 
 If PlaceDrift has been force-quit, reopen it before using the share extension so the local receiver and background session can start again.
 
@@ -86,7 +99,7 @@ PlaceDrift 0.2.1 also exposes App Intents for:
 - **Set PlaceDrift Coordinates** — pass latitude and longitude as numbers;
 - **Restore Real Location**.
 
-The Apple Maps share path does not require Shortcuts; both methods can coexist.
+Map sharing does not require Shortcuts; both methods can coexist.
 
 ## URL scheme
 
