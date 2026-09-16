@@ -10,8 +10,16 @@ struct WLOCAppView: View {
         NavigationStack {
             Form {
                 Section("Status") {
-                    LabeledContent("Pairing", value: controller.hasPairingRecord ? "Saved" : "Not paired")
-                    LabeledContent("Engine", value: controller.status)
+                    LabeledContent(
+                        "Pairing",
+                        value: controller.hasPairingRecord
+                            ? NSLocalizedString("Saved", comment: "Saved pairing state")
+                            : NSLocalizedString("Not paired", comment: "Missing pairing state")
+                    )
+                    LabeledContent(
+                        "Engine",
+                        value: NSLocalizedString(controller.status, comment: "CoreDevice engine status")
+                    )
                     if controller.isLocationActive {
                         Label("LocationSimulation active", systemImage: "location.fill")
                     }
@@ -28,7 +36,11 @@ struct WLOCAppView: View {
                             .font(.title3.monospacedDigit())
                     }
 
-                    Button(controller.isPairing ? "Pairing…" : "Start Pairing") {
+                    Button(
+                        controller.isPairing
+                            ? NSLocalizedString("Pairing…", comment: "Pairing button busy state")
+                            : NSLocalizedString("Start Pairing", comment: "Pairing button")
+                    ) {
                         controller.startPairing()
                     }
                     .disabled(controller.isPairing || controller.isLocationActive)
@@ -57,7 +69,11 @@ struct WLOCAppView: View {
                     TextField("Longitude", text: $longitude)
                         .keyboardType(.numbersAndPunctuation)
 
-                    Button(controller.isLocationActive ? "Update Location" : "Set Location") {
+                    Button(
+                        controller.isLocationActive
+                            ? NSLocalizedString("Update Location", comment: "Update simulated location")
+                            : NSLocalizedString("Set Location", comment: "Set simulated location")
+                    ) {
                         setLocationFromFields()
                     }
                     .disabled(!controller.canStartLocation && !controller.isLocationActive)
