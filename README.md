@@ -18,21 +18,30 @@ PlaceDrift does not create or own a VPN. A compatible TUN/proxy app provides the
 
 ## Current test status
 
-The complete location path has been validated on a physical iOS 27 device with `loopback-address: 10.7.0.1`.
+The complete location path has been validated on a physical iOS 27 device with `10.7.0.1` self-loop transport.
 
-Currently confirmed working TUN/self-loop tools:
+### Confirmed working
 
 - **LocalDevVPN** — confirmed working.
-- **Clash Mi** — confirmed working.
-- **Clash** — confirmed working.
+- **Clash Mi** — confirmed working with `loopback-address: 10.7.0.1`.
+- **Clash** — confirmed working with `loopback-address: 10.7.0.1`.
+- **Karing** — confirmed working.
 
-Planned compatibility tests:
+### Tested but not yet compatible with the current configuration
 
-- **Surge** — not yet verified.
-- **Egern** — not yet verified.
+- **Loon** — the tested TUN Only configuration can make a TCP socket appear reachable, but the real RemotePairing / Pair Verify path does not complete.
+- **Surge** — the tested configuration can also produce a false-positive TCP-ready state, while the real RemotePairing / Pair Verify path fails.
+
+These results describe the tested configurations only; they do not rule out a future Loon or Surge configuration that implements the required self-device reflection.
+
+### Pending
+
+- **Egern**
 - Other iOS VPN/TUN tools that can provide an equivalent `10.7.0.1` self-device loopback route.
 
-Validated configuration pattern:
+## TUN configuration examples
+
+### Clash Mi / Clash
 
 ```yaml
 tun:
@@ -40,52 +49,73 @@ tun:
     - 10.7.0.1
 ```
 
-Validated on-device:
+### Karing
 
-- CoreDevice RemotePairing and saved pairing record.
-- Pair Verify → TLS-PSK → RSD → DVT → LocationSimulation.
-- Apple Maps Share → PlaceDrift → immediate location switching.
-- Manual latitude/longitude updates while the CoreDevice session stays active.
-- Restore real location.
+The physical-device test that passed used the following minimal TUN settings:
 
-Amap and Baidu Maps sharing support is implemented in build 6 and is pending physical-device regression testing.
+```text
+TUN: enabled
+IPv4: 10.20.0.1/30
+Loopback Address: 10.7.0.1
+Stack: gvisor
+Outbound: DIRECT
+```
 
-If the active VPN/TUN app does not provide an equivalent self-loop, PlaceDrift may still discover `_remotepairing._tcp` but the TCP connection to `10.7.0.1:<RemotePairing port>` will time out before Pair Verify. In that case, restore a compatible TUN configuration; deleting the saved pairing record is normally unnecessary.
+Make sure `10.7.0.1` is not excluded by a broad route such as `10.0.0.0/8`.
 
-## PlaceDrift 0.2.1
+Equivalent sing-box-style TUN configuration:
 
-This test build keeps the Maps-share/background path and adds:
+```json
+{
+  "type": "tun",
+  "address": ["10.20.0.1/30"],
+  "auto_route": true,
+  "loopback_address": ["10.7.0.1"],
+  "stack": "gvisor"
+}
+```
 
-- clearer Chinese transport errors;
-- a live `10.7.0.1` transport health indicator that probes the current RemotePairing port and updates automatically while the app is open;
-- location coordinates and Set/Update/Restore controls moved directly below the status block for faster access;
-- app version/build moved to the bottom of the main screen;
-- when a saved pairing record exists, the UI hides **Start Pairing** and shows only **Delete Saved Pairing**, preventing accidental re-pairing;
-- first-launch location permission request, followed by an automatic request to upgrade to **Always** authorization when iOS permits it;
-- clearer runtime guidance when the active TUN does not provide the self-loop;
-- App Shortcuts restored alongside map sharing;
-- coordinate fields update automatically after map sharing or a Shortcuts location action;
-- build 6 adds Apple Maps + Amap + Baidu Maps share-link parsing in the Share Extension.
+## PlaceDrift 0.2.1 Build 8
 
-> iOS controls the exact timing of the **Always Location** upgrade prompt. PlaceDrift requests it automatically after the initial location grant, but iOS may defer the second prompt. If that happens, set PlaceDrift to **Always** under Settings → Privacy & Security → Location Services.
+Build 8 changes the transport indicator from a TCP-only probe to a **RemotePairing protocol-level probe**.
+
+The health check now does this:
+
+```text
+Discover `_remotepairing._tcp`
+  → connect to `10.7.0.1:<dynamic RemotePairing port>`
+  → send a real RPPairing `attemptPairVerify` handshake frame
+  → require a valid RPPairing handshake response
+  → only then show the transport as connected
+```
+
+This avoids the false green state seen with Loon and Surge, where a userspace TUN stack may report a TCP socket as ready even though packets are not actually reflected back to the iPhone RemotePairing service.
+
+Build 8 also includes:
+
+- Karing in the confirmed-compatible list;
+- Apple Maps, Amap / 高德地图, and Baidu Maps / 百度地图 share parsing;
+- map-share coordinate updates in the main UI;
+- saved-pairing protection so **Start Pairing** is hidden after a valid pairing record exists;
+- first-launch location permission requests and background keep-alive support;
+- App Shortcuts for a Location object, latitude/longitude, and Restore Real Location;
+- an original generated PlaceDrift app icon (map pin + motion trails), produced during CI so all required iPhone/iPad icon sizes are packaged in the IPA.
 
 ## Map sharing
 
 1. Pair PlaceDrift with the iPhone.
 2. Leave **Enable Maps sharing** on.
-3. Grant PlaceDrift **Always** location access when requested. It is used to keep the CoreDevice session and local share receiver available in the background; PlaceDrift does not store the real coordinates delivered by Core Location.
-4. Keep a compatible TUN/proxy app connected with `loopback-address: 10.7.0.1` enabled.
+3. Grant PlaceDrift **Always** location access when requested. iOS controls when the upgrade prompt appears, so the second prompt may be deferred.
+4. Keep a compatible TUN/proxy app connected with the required `10.7.0.1` self-loop enabled.
 5. In a supported map app, choose a place and use **Share → PlaceDrift**.
 
-Supported parser paths in build 6:
+Supported parser paths:
 
-- **Apple Maps** — direct coordinate URLs and expanded `maps.apple` share links.
-- **Amap / 高德地图** — `p=`, `q=`, `lnglat=`, and `position=` coordinate forms, including short links after redirect expansion. GCJ-02 coordinates are converted to WGS-84 before LocationSimulation.
-- **Baidu Maps / 百度地图** — direct `location=` / `latlng=` forms, Baidu BD09MC `@x,y` map URLs, and page payloads exposing BD09MC `x/y` values. BD-09 / BD09MC coordinates are converted to WGS-84 before LocationSimulation.
+- **Apple Maps** — direct coordinate URLs and expanded Apple Maps share links.
+- **Amap / 高德地图** — common `p=`, `q=`, `lnglat=`, and `position=` forms, including expanded short links. GCJ-02 is converted to WGS-84 before LocationSimulation.
+- **Baidu Maps / 百度地图** — direct `location=` / `latlng=` forms, BD09MC `@x,y` map URLs, and page payloads exposing BD09MC `x/y` values. BD-09 / BD09MC is converted to WGS-84 before LocationSimulation.
 
-The Amap and Baidu parsing rules were adapted from the mature parsing logic previously used by the WLOC project, while keeping PlaceDrift's CoreDevice transport fully independent.
-
-Some Baidu short links, especially POIs whose coordinates are only produced by Baidu's page scripts, may not expose enough coordinate data to a background URL request. These cases still need device testing and may require a later WebKit-based fallback.
+Some Baidu short links may only expose POI coordinates after page-script execution. Those cases may need a later WebKit fallback.
 
 The embedded `PlaceDriftShare.appex` extracts coordinates from shared map content and forwards them over a loopback-only bridge to the running PlaceDrift session.
 
@@ -93,13 +123,11 @@ If PlaceDrift has been force-quit, reopen it before using the share extension so
 
 ## Shortcuts
 
-PlaceDrift 0.2.1 also exposes App Intents for:
+PlaceDrift exposes App Intents for:
 
 - **Set PlaceDrift Location** — pass a Shortcuts `Location` directly;
 - **Set PlaceDrift Coordinates** — pass latitude and longitude as numbers;
 - **Restore Real Location**.
-
-Map sharing does not require Shortcuts; both methods can coexist.
 
 ## URL scheme
 
@@ -108,22 +136,6 @@ placedrift://set?lat=34.052235&lon=-118.243683
 placedrift://clear
 placedrift://pair
 ```
-
-## Runtime requirement
-
-PlaceDrift needs a TUN/VPN tool that implements the self-device loopback route:
-
-```yaml
-tun:
-  loopback-address:
-    - 10.7.0.1
-```
-
-**Confirmed working:** LocalDevVPN, Clash Mi, Clash.
-
-**Pending verification:** Surge, Egern, and other iOS VPN/TUN tools.
-
-PlaceDrift itself does not occupy the VPN slot.
 
 ## Build
 
@@ -145,10 +157,12 @@ Output:
 .build/artifacts/PlaceDrift-unsigned.ipa
 ```
 
+The build script also generates the complete app-icon PNG set from `scripts/generate-app-icon.swift` before Xcode builds the target.
+
 The unsigned IPA contains the embedded `PlaceDriftShare.appex`. The main app and extension must both remain signed as part of the same installed bundle.
 
 For the current LCSugn test workflow, if an updated build will not overwrite the installed app, enabling **Remove Embedded** before re-signing has been confirmed to allow the update while keeping the same bundle identifier.
 
 ## Privacy
 
-Pairing records and CoreDevice credentials remain on-device and are stored in Keychain. Do not upload pairing records, AltIRK material or private device credentials to GitHub, web pages or analytics services.
+Pairing records and CoreDevice credentials remain on-device and are stored in Keychain. Do not upload pairing records, AltIRK material, or private device credentials to GitHub, web pages, or analytics services.
