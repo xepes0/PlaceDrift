@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PlaceDriftAppView: View {
     @ObservedObject var controller: CoreDeviceController
+    @StateObject private var transportMonitor = TransportHealthMonitor()
 
     @State private var latitude = "34.052235"
     @State private var longitude = "-118.243683"
@@ -26,7 +27,13 @@ struct PlaceDriftAppView: View {
                         "Engine",
                         value: NSLocalizedString(controller.status, comment: "CoreDevice engine status")
                     )
-                    LabeledContent("Transport", value: "10.7.0.1")
+                    LabeledContent("Transport") {
+                        Label(
+                            NSLocalizedString(transportStateText, comment: "TUN loopback transport state"),
+                            systemImage: transportStateIcon
+                        )
+                        .foregroundStyle(transportStateColor)
+                    }
                     LabeledContent("Version", value: versionText)
 
                     if controller.isLocationActive {
@@ -41,36 +48,43 @@ struct PlaceDriftAppView: View {
                 }
 
                 Section("Pair this iPhone") {
-                    if let pin = controller.pairingPIN {
-                        LabeledContent("Pair with Host PIN", value: pin)
-                            .font(.title3.monospacedDigit())
-                    }
-
-                    Button(
-                        controller.isPairing
-                            ? NSLocalizedString("Pairing…", comment: "Pairing button busy state")
-                            : NSLocalizedString("Start Pairing", comment: "Pairing button")
-                    ) {
-                        controller.startPairing()
-                    }
-                    .disabled(controller.isPairing || controller.isLocationActive)
-
-                    if controller.isPairing {
-                        Button("Cancel Pairing", role: .destructive) {
-                            controller.cancelPairing()
-                        }
-                    }
-
                     if controller.hasPairingRecord {
+                        Label("This iPhone is paired", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+
                         Button("Delete Saved Pairing", role: .destructive) {
                             controller.resetPairing()
                         }
                         .disabled(controller.isLocationActive)
-                    }
 
-                    Text("After tapping Start Pairing, open Settings › Privacy & Security › Developer Mode › Pair with Host, select PlaceDrift, then enter the PIN shown here.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        Text("To pair again, delete the saved pairing record first. This prevents accidentally starting a new pairing session while the current pairing is still valid.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        if let pin = controller.pairingPIN {
+                            LabeledContent("Pair with Host PIN", value: pin)
+                                .font(.title3.monospacedDigit())
+                        }
+
+                        Button(
+                            controller.isPairing
+                                ? NSLocalizedString("Pairing…", comment: "Pairing button busy state")
+                                : NSLocalizedString("Start Pairing", comment: "Pairing button")
+                        ) {
+                            controller.startPairing()
+                        }
+                        .disabled(controller.isPairing || controller.isLocationActive)
+
+                        if controller.isPairing {
+                            Button("Cancel Pairing", role: .destructive) {
+                                controller.cancelPairing()
+                            }
+                        }
+
+                        Text("After tapping Start Pairing, open Settings › Privacy & Security › Developer Mode › Pair with Host, select PlaceDrift, then enter the PIN shown here.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Section("Maps sharing") {
@@ -152,6 +166,14 @@ struct PlaceDriftAppView: View {
         }
         .onAppear {
             controller.refreshPairingState()
+            transportMonitor.refresh()
+        }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(8))
+                guard !Task.isCancelled else { break }
+                transportMonitor.refresh()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .placeDriftSetLocation)) { note in
             guard
@@ -161,6 +183,48 @@ struct PlaceDriftAppView: View {
 
             self.latitude = String(latitude)
             self.longitude = String(longitude)
+            transportMonitor.refresh()
+        }
+    }
+
+    private var transportStateText: String {
+        switch transportMonitor.state {
+        case .unknown:
+            return "Not checked · 10.7.0.1"
+        case .checking:
+            return "Checking… · 10.7.0.1"
+        case .connected:
+            return "Connected · 10.7.0.1"
+        case .disconnected:
+            return "Not connected · 10.7.0.1"
+        case .noRemotePairingService:
+            return "RemotePairing not found"
+        }
+    }
+
+    private var transportStateIcon: String {
+        switch transportMonitor.state {
+        case .unknown:
+            return "questionmark.circle"
+        case .checking:
+            return "arrow.triangle.2.circlepath"
+        case .connected:
+            return "checkmark.circle.fill"
+        case .disconnected, .noRemotePairingService:
+            return "xmark.circle.fill"
+        }
+    }
+
+    private var transportStateColor: Color {
+        switch transportMonitor.state {
+        case .connected:
+            return .green
+        case .checking:
+            return .orange
+        case .disconnected, .noRemotePairingService:
+            return .red
+        case .unknown:
+            return .secondary
         }
     }
 
@@ -188,5 +252,6 @@ struct PlaceDriftAppView: View {
     private func setLocationFromFields() {
         guard let lat = Double(latitude), let lon = Double(longitude) else { return }
         controller.setLocation(latitude: lat, longitude: lon)
+        transportMonitor.refresh()
     }
 }
