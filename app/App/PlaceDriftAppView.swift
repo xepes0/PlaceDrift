@@ -157,7 +157,7 @@ struct PlaceDriftAppView: View {
                 }
 
                 Section("Runtime requirement") {
-                    Text("Enable loopback-address 10.7.0.1 in the active TUN configuration. Tested working: LocalDevVPN, Clash Mi, and Clash. Surge, Egern, and other VPN/TUN apps are pending verification. PlaceDrift does not start a VPN.")
+                    Text("Enable loopback-address 10.7.0.1 in the active TUN configuration. Tested working: LocalDevVPN, Clash Mi, Clash, and Karing. Loon and Surge currently fail the RemotePairing protocol check in the tested configurations; Egern is pending verification. PlaceDrift does not start a VPN.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
