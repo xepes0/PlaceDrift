@@ -18,7 +18,21 @@ PlaceDrift does not create or own a VPN. A compatible TUN/proxy app provides the
 
 ## Current test status
 
-The complete location path has been validated on a physical iOS 27 device with Clash Mi and:
+The complete location path has been validated on a physical iOS 27 device with `loopback-address: 10.7.0.1`.
+
+Currently confirmed working TUN/self-loop tools:
+
+- **LocalDevVPN** — confirmed working.
+- **Clash Mi** — confirmed working.
+- **Clash** — confirmed working.
+
+Planned compatibility tests:
+
+- **Surge** — not yet verified.
+- **Egern** — not yet verified.
+- Other iOS VPN/TUN tools that can provide an equivalent `10.7.0.1` self-device loopback route.
+
+Validated configuration pattern:
 
 ```yaml
 tun:
@@ -78,7 +92,7 @@ placedrift://pair
 
 ## Runtime requirement
 
-The validated configuration uses Clash Mi:
+PlaceDrift needs a TUN/VPN tool that implements the self-device loopback route:
 
 ```yaml
 tun:
@@ -86,7 +100,11 @@ tun:
     - 10.7.0.1
 ```
 
-Other TUN/proxy apps can only be used if they provide an equivalent self-device loopback route to `10.7.0.1`. PlaceDrift itself does not occupy the VPN slot.
+**Confirmed working:** LocalDevVPN, Clash Mi, Clash.
+
+**Pending verification:** Surge, Egern, and other iOS VPN/TUN tools.
+
+PlaceDrift itself does not occupy the VPN slot.
 
 ## Build
 
