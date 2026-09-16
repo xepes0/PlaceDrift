@@ -9,7 +9,7 @@ final class ShareViewController: UIViewController {
     private let closeButton = UIButton(type: .system)
 
     private var didStart = false
-    private var resolver: AppleMapsRedirectResolver?
+    private var resolver: MapShareRedirectResolver?
     private var bridgeClient: ShareBridgeClient?
 
     override func viewDidLoad() {
@@ -57,7 +57,7 @@ final class ShareViewController: UIViewController {
         loadURL(from: providers, index: 0) { [weak self] url in
             guard let self else { return }
             guard let url else {
-                self.showError(NSLocalizedString("No Apple Maps link was found in the shared item.", comment: "Share extension missing URL"))
+                self.showError(NSLocalizedString("No supported map link was found in the shared item.", comment: "Share extension missing URL"))
                 return
             }
             self.resolve(url)
@@ -134,19 +134,19 @@ final class ShareViewController: UIViewController {
     }
 
     private func resolve(_ url: URL) {
-        if let coordinate = AppleMapsCoordinateParser.parse(url: url) {
+        if let coordinate = MapShareCoordinateParser.parse(url: url) {
             send(coordinate)
             return
         }
 
-        statusLabel.text = NSLocalizedString("Resolving Apple Maps link…", comment: "Share extension resolving status")
-        let resolver = AppleMapsRedirectResolver()
+        statusLabel.text = NSLocalizedString("Resolving map link…", comment: "Share extension resolving status")
+        let resolver = MapShareRedirectResolver()
         self.resolver = resolver
         resolver.resolve(url) { [weak self] coordinate in
             guard let self else { return }
             self.resolver = nil
             guard let coordinate else {
-                self.showError(NSLocalizedString("Could not extract coordinates from this Apple Maps link.", comment: "Share extension coordinate failure"))
+                self.showError(NSLocalizedString("Could not extract coordinates from this map link.", comment: "Share extension coordinate failure"))
                 return
             }
             self.send(coordinate)
