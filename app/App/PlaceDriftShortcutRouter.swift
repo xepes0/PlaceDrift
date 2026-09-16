@@ -66,6 +66,7 @@ enum PlaceDriftShortcutRouter {
             controller.clearLocation()
 
         case .startPairing:
+            guard !controller.hasPairingRecord else { return }
             controller.startPairing()
         }
     }
