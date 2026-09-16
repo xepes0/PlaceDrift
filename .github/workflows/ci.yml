@@ -2,7 +2,7 @@ name: Validate
 
 on:
   push:
-    branches: [main]
+    branches: [main, browser-wasm]
   pull_request:
 
 concurrency:
@@ -28,6 +28,47 @@ jobs:
       - name: Check idevice CoreDevice WASM surface
         working-directory: native/browser-wasm-probe
         run: cargo check --target wasm32-unknown-unknown
+
+  publish-browser-wasm:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/browser-wasm' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: browser-wasm
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Build release WASM
+        working-directory: native/browser-wasm-probe
+        run: cargo build --release --target wasm32-unknown-unknown
+      - name: Install matching wasm-bindgen CLI
+        working-directory: native/browser-wasm-probe
+        run: |
+          VERSION=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "wasm-bindgen") | .version' | head -n1)
+          echo "wasm-bindgen version: ${VERSION}"
+          cargo install wasm-bindgen-cli --version "${VERSION}" --locked
+      - name: Generate web bindings
+        run: |
+          rm -rf experiments/browser-wasm/pkg
+          mkdir -p experiments/browser-wasm/pkg
+          wasm-bindgen \
+            native/browser-wasm-probe/target/wasm32-unknown-unknown/release/wloc_browser_wasm_probe.wasm \
+            --target web \
+            --no-typescript \
+            --out-dir experiments/browser-wasm/pkg
+      - name: Commit generated browser package
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/browser-wasm/pkg
+          if git diff --cached --quiet; then
+            echo "Browser package unchanged"
+          else
+            git commit -m "Build browser WASM package [skip ci]"
+            git push origin HEAD:browser-wasm
+          fi
 
   swift-loopback:
     runs-on: macos-15
