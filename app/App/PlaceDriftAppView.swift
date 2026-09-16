@@ -3,6 +3,7 @@ import SwiftUI
 struct PlaceDriftAppView: View {
     @ObservedObject var controller: CoreDeviceController
     @StateObject private var transportMonitor = TransportHealthMonitor()
+    @StateObject private var permissionRequester = InitialPermissionRequester()
 
     @State private var latitude = "34.052235"
     @State private var longitude = "-118.243683"
@@ -34,7 +35,6 @@ struct PlaceDriftAppView: View {
                         )
                         .foregroundStyle(transportStateColor)
                     }
-                    LabeledContent("Version", value: versionText)
 
                     if controller.isLocationActive {
                         Label("LocationSimulation active", systemImage: "location.fill")
@@ -45,6 +45,31 @@ struct PlaceDriftAppView: View {
                             .foregroundStyle(.red)
                             .font(.footnote)
                     }
+                }
+
+                Section("Location") {
+                    TextField("Latitude", text: $latitude)
+                        .keyboardType(.numbersAndPunctuation)
+                    TextField("Longitude", text: $longitude)
+                        .keyboardType(.numbersAndPunctuation)
+
+                    Button(
+                        controller.isLocationActive
+                            ? NSLocalizedString("Update Location", comment: "Update simulated location")
+                            : NSLocalizedString("Set Location", comment: "Set simulated location")
+                    ) {
+                        setLocationFromFields()
+                    }
+                    .disabled(!controller.canStartLocation && !controller.isLocationActive)
+
+                    Button("Restore Real Location", role: .destructive) {
+                        controller.clearLocation()
+                    }
+                    .disabled(!controller.isLocationActive && !controller.isDiscovering)
+
+                    Text("Apple Maps sharing updates these coordinates automatically.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("Pair this iPhone") {
@@ -125,31 +150,6 @@ struct PlaceDriftAppView: View {
                     }
                 }
 
-                Section("Location") {
-                    TextField("Latitude", text: $latitude)
-                        .keyboardType(.numbersAndPunctuation)
-                    TextField("Longitude", text: $longitude)
-                        .keyboardType(.numbersAndPunctuation)
-
-                    Button(
-                        controller.isLocationActive
-                            ? NSLocalizedString("Update Location", comment: "Update simulated location")
-                            : NSLocalizedString("Set Location", comment: "Set simulated location")
-                    ) {
-                        setLocationFromFields()
-                    }
-                    .disabled(!controller.canStartLocation && !controller.isLocationActive)
-
-                    Button("Restore Real Location", role: .destructive) {
-                        controller.clearLocation()
-                    }
-                    .disabled(!controller.isLocationActive && !controller.isDiscovering)
-
-                    Text("Apple Maps sharing updates these coordinates automatically.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
                 Section("Shortcuts") {
                     Text("You can pass a Shortcuts Location directly to PlaceDrift, pass latitude and longitude, or restore the real location.")
                         .font(.footnote)
@@ -161,12 +161,17 @@ struct PlaceDriftAppView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+
+                Section {
+                    LabeledContent("Version", value: versionText)
+                }
             }
             .navigationTitle("PlaceDrift")
         }
         .onAppear {
             controller.refreshPairingState()
             transportMonitor.refresh()
+            permissionRequester.requestIfNeeded()
         }
         .task {
             while !Task.isCancelled {
