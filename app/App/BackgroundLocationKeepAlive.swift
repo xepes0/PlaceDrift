@@ -21,6 +21,7 @@ final class BackgroundLocationKeepAlive: NSObject, @preconcurrency CLLocationMan
     private let manager = CLLocationManager()
     private var requested = false
     private var requestedAlwaysUpgrade = false
+    private var authorizationOnly = false
 
     override init() {
         super.init()
@@ -32,13 +33,52 @@ final class BackgroundLocationKeepAlive: NSObject, @preconcurrency CLLocationMan
         manager.activityType = .other
     }
 
+    func requestInitialAuthorization() {
+        guard CLLocationManager.locationServicesEnabled() else {
+            update(.servicesDisabled)
+            return
+        }
+
+        switch manager.authorizationStatus {
+        case .notDetermined:
+            requested = true
+            authorizationOnly = true
+            requestedAlwaysUpgrade = false
+            update(.requestingAlwaysAuthorization)
+            manager.requestWhenInUseAuthorization()
+
+        case .authorizedWhenInUse:
+            requested = true
+            authorizationOnly = true
+            update(.needsAlwaysAuthorization)
+            if !requestedAlwaysUpgrade {
+                requestedAlwaysUpgrade = true
+                manager.requestAlwaysAuthorization()
+            }
+
+        case .authorizedAlways:
+            update(.stopped)
+
+        case .denied:
+            update(.denied)
+
+        case .restricted:
+            update(.restricted)
+
+        @unknown default:
+            update(.failed)
+        }
+    }
+
     func start() {
+        authorizationOnly = false
         requested = true
         reconcileAuthorization()
     }
 
     func stop() {
         requested = false
+        authorizationOnly = false
         requestedAlwaysUpgrade = false
         manager.stopUpdatingLocation()
         manager.allowsBackgroundLocationUpdates = false
@@ -63,7 +103,11 @@ final class BackgroundLocationKeepAlive: NSObject, @preconcurrency CLLocationMan
         switch manager.authorizationStatus {
         case .notDetermined:
             update(.requestingAlwaysAuthorization)
-            manager.requestAlwaysAuthorization()
+            if authorizationOnly {
+                manager.requestWhenInUseAuthorization()
+            } else {
+                manager.requestAlwaysAuthorization()
+            }
 
         case .authorizedWhenInUse:
             manager.stopUpdatingLocation()
@@ -75,10 +119,19 @@ final class BackgroundLocationKeepAlive: NSObject, @preconcurrency CLLocationMan
             }
 
         case .authorizedAlways:
-            manager.showsBackgroundLocationIndicator = false
-            manager.allowsBackgroundLocationUpdates = true
-            manager.startUpdatingLocation()
-            update(.active)
+            if authorizationOnly {
+                requested = false
+                authorizationOnly = false
+                requestedAlwaysUpgrade = false
+                manager.stopUpdatingLocation()
+                manager.allowsBackgroundLocationUpdates = false
+                update(.stopped)
+            } else {
+                manager.showsBackgroundLocationIndicator = false
+                manager.allowsBackgroundLocationUpdates = true
+                manager.startUpdatingLocation()
+                update(.active)
+            }
 
         case .denied:
             manager.stopUpdatingLocation()
