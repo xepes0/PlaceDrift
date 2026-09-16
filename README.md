@@ -1,53 +1,64 @@
-# WLOC CoreDevice Lab
+# PlaceDrift
 
-Experimental iOS 17+/iOS 27 research project for system location simulation without USB and without modifying the legacy WLOC MITM flow.
-
-## Goals
-
-- Keep `xepes0/wloc` untouched.
-- Use an on-device network tunnel path instead of `gs-loc.apple.com` MITM.
-- Explore Clash Mi / Mihomo as the always-on VPN host.
-- Reach the iPhone's own RemotePairing/CoreDevice services through an on-device loopback path.
-- Drive `RemotePairing -> TLS-PSK -> RSD -> DVT -> LocationSimulation` from a native bridge.
-- Keep pairing material on-device only.
-
-## Target architecture
+PlaceDrift is an iOS CoreDevice location-control app built around the transport path already validated on physical iOS 27 hardware.
 
 ```text
-WLOC web / Shortcut
-        |
-        v
-Custom URL / local command
-        |
-        v
-Clash Mi host integration
-  |                |
-  |                +--> normal Mihomo proxy traffic
-  |
-  +--> local-device loopback (10.7.0.1)
-                |
-                v
-          RemotePairing
-                |
-             TLS-PSK
-                |
-               RSD
-                |
-               DVT
-                |
-      LocationSimulation
+PlaceDrift
+  → Clash Mi TUN `loopback-address: 10.7.0.1`
+  → RemotePairing
+  → Pair Verify
+  → TLS-PSK
+  → RSD
+  → DVT
+  → LocationSimulation
 ```
 
-## Current phase
+PlaceDrift does not create or own a VPN. Clash Mi remains the single VPN/TUN owner.
 
-1. Prove the `10.7.0.1` self-device loopback behavior independently.
-2. Keep the CoreDevice engine isolated from any proxy UI/framework.
-3. Only after both pieces work, integrate them with Clash Mi.
+## Features
 
-## Safety / privacy boundary
+- First-run PIN pairing through **Settings → Privacy & Security → Developer Mode → Pair with Host**.
+- Pairing record stored in Keychain.
+- Automatic `_remotepairing._tcp` discovery and identity validation.
+- Set, update and clear simulated location.
+- Simplified Chinese UI.
+- Shortcuts actions:
+  - pass a Shortcuts **Location** directly to PlaceDrift;
+  - pass latitude and longitude;
+  - restore real location.
+- URL scheme:
+  - `placedrift://set?lat=34.052235&lon=-118.243683`
+  - `placedrift://clear`
+  - `placedrift://pair`
 
-Pairing records, AltIRK values, TLS material, device identifiers and native diagnostics must never be sent to a Worker, web page, analytics service or GitHub.
+## Runtime requirement
 
-## Status
+Clash Mi must be connected with:
 
-Experimental. Not yet validated on a physical iOS 27 device.
+```yaml
+tun:
+  loopback-address:
+    - 10.7.0.1
+```
+
+## Build
+
+Requirements:
+
+- macOS + Xcode
+- XcodeGen
+- Rust toolchain
+
+Run:
+
+```bash
+./scripts/build-app.sh
+```
+
+Output:
+
+```text
+.build/artifacts/PlaceDrift-unsigned.ipa
+```
+
+The unsigned IPA can then be signed with the user's preferred signing workflow.

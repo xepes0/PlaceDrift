@@ -1,26 +1,15 @@
-name: Validate
+name: Validate PlaceDrift
 
 on:
   push:
-    branches: [main]
+    branches: [placedrift-mainline]
   pull_request:
 
 concurrency:
-  group: coredevice-lab-${{ github.ref }}
+  group: placedrift-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  swift-loopback:
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-      - name: Swift version
-        run: swift --version
-      - name: Build
-        run: swift build -v
-      - name: Test
-        run: swift test -v
-
   rust-coredevice:
     runs-on: ubuntu-latest
     steps:
@@ -29,32 +18,21 @@ jobs:
         run: rustc --version
       - name: Check
         working-directory: native/coredevice
-        run: cargo check --locked || cargo check
+        run: cargo check
       - name: Test
         working-directory: native/coredevice
         run: cargo test --lib
 
-  mihomo-sing-tun-compat:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - sing_tun: v0.4.21
-            legacy_patch: '1'
-          - sing_tun: v0.4.22
-            legacy_patch: '1'
-          - sing_tun: v0.4.24
-            legacy_patch: '0'
+  ios-app:
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build unsigned PlaceDrift app
+        run: bash scripts/build-app.sh
+      - uses: actions/upload-artifact@v4
         with:
-          go-version: '1.25.x'
-          cache: false
-      - name: Compile Mihomo 1.19.31 TUN with selected sing-tun
-        env:
-          MIHOMO_VERSION: v1.19.31
-          SING_TUN_VERSION: ${{ matrix.sing_tun }}
-          PATCH_LEGACY_API: ${{ matrix.legacy_patch }}
-        run: bash scripts/check-mihomo-sing-tun.sh
+          name: PlaceDrift-unsigned
+          path: .build/artifacts/PlaceDrift-unsigned.ipa
+          if-no-files-found: error
