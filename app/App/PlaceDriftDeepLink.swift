@@ -30,6 +30,7 @@ enum PlaceDriftDeepLinkHandler {
             controller.clearLocation()
 
         case "pair":
+            guard !controller.hasPairingRecord else { return }
             controller.startPairing()
 
         default:
