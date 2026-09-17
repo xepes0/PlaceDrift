@@ -3,10 +3,10 @@ import Foundation
 enum PlaceDriftShareProtocol {
     static let version = 2
 
-    // SideStore/re-signed builds can leave another signed copy or process holding
-    // the original fixed port. Both the host app and Share Extension use this
-    // deterministic loopback-only pool so the host can move to a free port and
-    // the extension can discover it without App Groups or shared entitlements.
+    // Keep IPC fully local and independent from App Groups. The host picks the
+    // first free loopback port, while the Share Extension probes this same pool.
+    // Version 2 prevents an older installed PlaceDrift copy from accepting a
+    // Build 17 payload on the original fixed port.
     static let ports: [UInt16] = Array(57874...57889)
 
     struct Payload: Codable {
