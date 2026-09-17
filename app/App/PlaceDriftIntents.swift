@@ -11,7 +11,7 @@ private enum PlaceDriftShortcutError: LocalizedError {
         case .invalidCoordinates:
             return NSLocalizedString("Invalid coordinates.", comment: "Shortcut coordinate validation error")
         case .missingCoordinate:
-            return NSLocalizedString("The selected location has no coordinates.", comment: "Shortcut placemark validation error")
+            return NSLocalizedString("No coordinates were received from Shortcuts.", comment: "Shortcut missing coordinate error")
         }
     }
 }
@@ -48,13 +48,21 @@ struct SetPlaceDriftCoordinatesIntent: AppIntent {
     static var description = IntentDescription("Pass latitude and longitude to PlaceDrift and start LocationSimulation.")
     static var openAppWhenRun: Bool = true
 
+    // Optional parameters are intentional. When an upstream Shortcuts action (for
+    // example a map-link parser) returns no value, required AppIntent parameters make
+    // Shortcuts fall back to an interactive "enter latitude/longitude" prompt. That
+    // hides the real failure. Optional values let PlaceDrift report a missing upstream
+    // coordinate instead, while normal numeric magic variables continue to work.
     @Parameter(title: "Latitude")
-    var latitude: Double
+    var latitude: Double?
 
     @Parameter(title: "Longitude")
-    var longitude: Double
+    var longitude: Double?
 
     func perform() async throws -> some IntentResult {
+        guard let latitude, let longitude else {
+            throw PlaceDriftShortcutError.missingCoordinate
+        }
         guard
             (-90.0...90.0).contains(latitude),
             (-180.0...180.0).contains(longitude)
