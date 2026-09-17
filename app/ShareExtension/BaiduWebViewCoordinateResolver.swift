@@ -273,7 +273,12 @@ final class BaiduWebViewCoordinateResolver: NSObject, WKNavigationDelegate {
             .joined(separator: ",")
 
         let href = String(snapshot.href.prefix(180))
-        diagnosticSummary = "Baidu debug: href=\(href)\nmarkers=\(markers.isEmpty ? \"none\" : markers) resources=\(resourceLines.count) captured=\(snapshot.captured.count) globals=\(snapshot.globals.count)\(sample.isEmpty ? \"\" : \"\nresource=\(sample)\")"
+        let markerText = markers.isEmpty ? "none" : markers
+        var diagnostic = "Baidu debug: href=\(href)\nmarkers=\(markerText) resources=\(resourceLines.count) captured=\(snapshot.captured.count) globals=\(snapshot.globals.count)"
+        if !sample.isEmpty {
+            diagnostic += "\nresource=\(sample)"
+        }
+        diagnosticSummary = diagnostic
     }
 
     private func finish(_ coordinate: MapShareCoordinate?) {
