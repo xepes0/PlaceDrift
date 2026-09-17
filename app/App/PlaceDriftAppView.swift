@@ -135,12 +135,17 @@ struct PlaceDriftAppView: View {
                         value: NSLocalizedString(backgroundStateText, comment: "Background keepalive state")
                     )
 
+                    LabeledContent(
+                        "Map parser",
+                        value: NSLocalizedString("Local only", comment: "Map parser mode")
+                    )
+
                     if controller.mapSharingReady {
                         Label("Ready for map sharing", systemImage: "square.and.arrow.up.fill")
                             .foregroundStyle(.green)
                     }
 
-                    Text("Share a place from Apple Maps, Amap, or Baidu Maps to PlaceDrift. The shared location is sent directly to the running CoreDevice session; Shortcuts are not required.")
+                    Text("Share a place from Apple Maps, Amap, or Baidu Maps to PlaceDrift. Coordinate parsing is performed locally on this iPhone and does not use the WLOC Worker.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
 
@@ -152,7 +157,7 @@ struct PlaceDriftAppView: View {
                 }
 
                 Section("Shortcuts") {
-                    Text("Build 11 adds a new one-field coordinate action to avoid the cached two-parameter Shortcuts schema. Pass one value such as 22.293882,114.174130.")
+                    Text("Use the one-field coordinate-text action to avoid the cached two-parameter Shortcuts schema. Pass one value such as 22.293882,114.174130.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
