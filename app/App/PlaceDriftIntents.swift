@@ -5,6 +5,7 @@ import Foundation
 private enum PlaceDriftShortcutError: LocalizedError {
     case invalidCoordinates
     case missingCoordinate
+    case unsupportedMapShare
 
     var errorDescription: String? {
         switch self {
@@ -12,6 +13,8 @@ private enum PlaceDriftShortcutError: LocalizedError {
             return NSLocalizedString("Invalid coordinates.", comment: "Shortcut coordinate validation error")
         case .missingCoordinate:
             return NSLocalizedString("No coordinates were received from Shortcuts.", comment: "Shortcut missing coordinate error")
+        case .unsupportedMapShare:
+            return NSLocalizedString("Could not extract coordinates from the shared map item.", comment: "Shortcut local map parser error")
         }
     }
 }
@@ -66,8 +69,8 @@ private func parseCoordinatePair(_ rawValue: String) -> (Double, Double)? {
         }
     }
 
-    let pattern = #"(-?\d{1,2}(?:\.\d+)?)\s*[,;|\s]\s*(-?\d{1,3}(?:\.\d+)?)"#
-    if let regex = try? NSRegularExpression(pattern: pattern),
+    let separatedPattern = #"(-?\d{1,2}(?:\.\d+)?)\s*[,;|\s]\s*(-?\d{1,3}(?:\.\d+)?)"#
+    if let regex = try? NSRegularExpression(pattern: separatedPattern),
        let match = regex.firstMatch(
         in: text,
         range: NSRange(text.startIndex..<text.endIndex, in: text)
@@ -77,6 +80,22 @@ private func parseCoordinatePair(_ rawValue: String) -> (Double, Double)? {
        let latitude = Double(text[latRange]),
        let longitude = Double(text[lonRange]) {
         return (latitude, longitude)
+    }
+
+    // Be tolerant of Shortcuts text blocks that place two magic variables next to
+    // quotes or other punctuation without an explicit comma. Take the first two
+    // decimal numbers and validate their latitude/longitude ranges afterward.
+    let numberPattern = #"-?\d{1,3}(?:\.\d+)?"#
+    if let regex = try? NSRegularExpression(pattern: numberPattern) {
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        let matches = regex.matches(in: text, range: range)
+        if matches.count >= 2,
+           let firstRange = Range(matches[0].range, in: text),
+           let secondRange = Range(matches[1].range, in: text),
+           let latitude = Double(text[firstRange]),
+           let longitude = Double(text[secondRange]) {
+            return (latitude, longitude)
+        }
     }
 
     return nil
@@ -91,6 +110,12 @@ private func validateCoordinatePair(_ latitude: Double, _ longitude: Double) thr
     else {
         throw PlaceDriftShortcutError.invalidCoordinates
     }
+}
+
+@MainActor
+private func resolveShortcutMapShare(_ rawInput: String) async -> MapShareCoordinate? {
+    let resolver = PlaceDriftShortcutMapResolver()
+    return await resolver.resolve(rawInput)
 }
 
 struct SetPlaceDriftLocationIntent: AppIntent {
@@ -140,9 +165,6 @@ struct SetPlaceDriftCoordinatesIntent: AppIntent {
     }
 }
 
-// Build 11 intentionally uses a brand-new AppIntent type and only one text field.
-// This avoids both the cached schema of the older two-parameter action and Shortcuts'
-// unreliable coercion of JSON dictionary values into two independent parameters.
 struct SetPlaceDriftCoordinateTextIntent: AppIntent {
     static var title: LocalizedStringResource = "Set PlaceDrift Coordinate Text"
     static var description = IntentDescription("Pass one coordinate pair such as 22.293882,114.174130 to PlaceDrift.")
@@ -157,6 +179,30 @@ struct SetPlaceDriftCoordinateTextIntent: AppIntent {
         }
         try validateCoordinatePair(latitude, longitude)
         await PlaceDriftShortcutRouter.setLocation(latitude: latitude, longitude: longitude)
+        return .result()
+    }
+}
+
+// Build 14: accept the original map share text directly. This removes the old
+// Shortcut dependency on the WLOC /api/parse request and uses the same local
+// Apple/Amap/Baidu parsing stack as the Share Extension.
+struct SetPlaceDriftFromMapShareIntent: AppIntent {
+    static var title: LocalizedStringResource = "Set PlaceDrift from Map Share"
+    static var description = IntentDescription("Parse a shared Apple Maps, Amap, or Baidu Maps item locally and set PlaceDrift location without a Worker request.")
+    static var openAppWhenRun: Bool = true
+
+    @Parameter(title: "Map Share Text")
+    var mapShareText: String
+
+    func perform() async throws -> some IntentResult {
+        guard let coordinate = await resolveShortcutMapShare(mapShareText) else {
+            throw PlaceDriftShortcutError.unsupportedMapShare
+        }
+        try validateCoordinatePair(coordinate.latitude, coordinate.longitude)
+        await PlaceDriftShortcutRouter.setLocation(
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude
+        )
         return .result()
     }
 }
@@ -185,6 +231,17 @@ struct PairPlaceDriftIntent: AppIntent {
 
 struct PlaceDriftAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: SetPlaceDriftFromMapShareIntent(),
+            phrases: [
+                "Set map share with \(.applicationName)",
+                "Use \(.applicationName) map share",
+                "用 \(.applicationName) 设置地图分享位置"
+            ],
+            shortTitle: "Set from Map Share",
+            systemImageName: "map.fill"
+        )
+
         AppShortcut(
             intent: SetPlaceDriftLocationIntent(),
             phrases: [
