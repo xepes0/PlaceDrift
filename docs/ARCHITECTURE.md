@@ -2,41 +2,55 @@
 
 ## Product boundary
 
-PlaceDrift is independent of the earlier browser/MITM experiments. The production path is native CoreDevice.
+PlaceDrift is a native CoreDevice location-control app. The current public-beta product path does not depend on browser/MITM experiments, WLOC Worker parsing, Shortcuts/App Intents, GeoServices region switching, or an embedded VPN.
 
 ```text
-SwiftUI / App Intents
-       │
-       ▼
+Apple Maps / Amap / Baidu Maps
+        │
+        ▼
+Share Extension
+        │
+        ├─ local URL / page parsing
+        ├─ GCJ-02 → WGS-84
+        └─ BD-09 / BD09MC → WGS-84
+        │
+        ▼
+loopback-only Share Bridge
+        │
+        ▼
 CoreDeviceController
-       │
-       ├─ Bonjour pairing host
-       ├─ Keychain pairing record
-       └─ `_remotepairing._tcp` discovery
-       │
-       ▼
+        │
+        ├─ Bonjour pairing host
+        ├─ Keychain pairing record
+        ├─ RemotePairing discovery
+        └─ background location keep-alive
+        │
+        ▼
 Rust CoreDevice engine
-       │
-       ▼
-10.7.0.1 through Clash Mi TUN loopback
-       │
-       ▼
-RemotePairing → TLS-PSK → RSD → DVT → LocationSimulation
+        │
+        ▼
+10.7.0.1 through a compatible TUN self-loop
+        │
+        ▼
+RemotePairing → Pair Verify → TLS-PSK → RSD → DVT → LocationSimulation
 ```
 
-## Why Clash Mi stays separate
+## TUN boundary
 
-The app intentionally does not ship a Network Extension. This prevents it from competing with Clash Mi for the iOS VPN slot. Clash Mi provides the local self-device path; PlaceDrift performs the CoreDevice protocol.
+PlaceDrift intentionally does not ship a Network Extension and does not start or control a VPN. A separate compatible TUN app must provide the `10.7.0.1` self-device loopback transport.
 
-## Shortcuts
+Physical-device testing has confirmed the current path with LocalDevVPN, Clash Mi, Clash, and Karing. Tested Loon, Surge, and Shadowrocket configurations do not currently pass the RemotePairing protocol-level health check.
 
-`Set PlaceDrift Location` accepts a Shortcuts `Location` value and extracts its coordinate. This is the preferred user workflow:
+## User workflow
+
+The supported public-beta workflow is intentionally small:
 
 ```text
-Get Current Location / Select Location
-→ Set PlaceDrift Location
-→ PlaceDrift opens
-→ CoreDevice location session starts or updates
+Choose a place in Apple Maps / Amap / Baidu Maps
+→ Share
+→ PlaceDrift
+→ local coordinate parsing
+→ update or start LocationSimulation
 ```
 
-A second action accepts numeric latitude and longitude for automation and third-party picker workflows.
+The main app also keeps manual latitude/longitude entry and the basic `placedrift://` deep-link scheme for diagnostics and direct control.

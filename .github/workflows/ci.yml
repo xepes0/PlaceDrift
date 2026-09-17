@@ -2,8 +2,9 @@ name: Validate PlaceDrift
 
 on:
   push:
-    branches: [placedrift-mainline]
+    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: placedrift-${{ github.ref }}

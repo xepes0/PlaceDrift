@@ -6,6 +6,14 @@ PlaceDrift 是一个面向 **iOS 27+** 的 CoreDevice 虚拟定位工具。它�
 >
 > 当前版本以“地图 App → 分享 → PlaceDrift”为唯一推荐入口。地图坐标解析全部在本机完成，不依赖 WLOC Worker，也不再提供 Shortcuts 坐标入口或实验性的地图区域切换功能。
 
+## 下载
+
+**[⬇️ 直接下载 PlaceDrift 0.2.1 Public Beta 1 unsigned IPA](https://github.com/xepes0/PlaceDrift/releases/download/v0.2.1-beta.1/PlaceDrift-0.2.1-Public-Beta-1-unsigned.ipa)**
+
+**[📦 查看 GitHub Release / 更新说明](https://github.com/xepes0/PlaceDrift/releases/tag/v0.2.1-beta.1)**
+
+> Release 提供的是 **unsigned IPA**。请使用你自己的合法开发者证书 / P12 + mobileprovision 或其它合法签名方式重新签名后安装，并保留内嵌的 `PlaceDriftShare.appex`。
+
 ## 工作原理
 
 ```text
@@ -69,7 +77,7 @@ Stack: gvisor
 
 ## 安装
 
-GitHub Release 提供的是 **unsigned IPA**。下载后需要使用你自己的开发者证书 / P12 + mobileprovision 或其它合法签名方式重新签名并安装。
+下载上方 unsigned IPA 后，请使用你自己的开发者证书 / P12 + mobileprovision 或其它合法签名方式重新签名并安装。
 
 安装时请保留主 App 内嵌的 `PlaceDriftShare.appex`，否则地图分享入口不会出现。
 
