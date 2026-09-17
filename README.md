@@ -1,45 +1,50 @@
 # PlaceDrift
 
-PlaceDrift is an iOS CoreDevice location-control app for iOS 27+.
+PlaceDrift 是一个面向 **iOS 27+** 的 CoreDevice 虚拟定位工具。它在 iPhone 本机完成 RemotePairing / DVT `LocationSimulation` 链路，并支持从 **Apple 地图、高德地图、百度地图**直接分享地点到 PlaceDrift。
+
+> **Public Beta 1 — 0.2.1 (Build 15)**
+>
+> 当前版本以“地图 App → 分享 → PlaceDrift”为唯一推荐入口。地图坐标解析全部在本机完成，不依赖 WLOC Worker，也不再提供 Shortcuts 坐标入口或实验性的地图区域切换功能。
+
+## 工作原理
 
 ```text
-Apple Maps / Amap / Baidu Maps / Shortcuts / manual coordinates
+Apple Maps / 高德地图 / 百度地图
+  → Share Extension
+  → 本地坐标解析与坐标系转换
   → PlaceDrift
-  → compatible TUN self-loop `10.7.0.1`
-  → RemotePairing
-  → Pair Verify
-  → TLS-PSK
-  → RSD
-  → DVT
+  → TUN self-loop 10.7.0.1
+  → RemotePairing / Pair Verify
+  → TLS-PSK → RSD → DVT
   → LocationSimulation
 ```
 
-PlaceDrift does not create or own a VPN. A compatible TUN/proxy app provides the self-device loopback transport.
+**PlaceDrift 本身不会启动 VPN。** 它需要一个能够把 `10.7.0.1` 正确回环到本机 RemotePairing 服务的 TUN/VPN App。
 
-## Current test status
+## 兼容性
 
-The complete location path has been validated on a physical iOS 27 device with `10.7.0.1` self-loop transport.
+### 已实测可用
 
-### Confirmed working
+- **LocalDevVPN**
+- **Clash Mi**
+- **Clash**
+- **Karing**
 
-- **LocalDevVPN** — confirmed working.
-- **Clash Mi** — confirmed working with `loopback-address: 10.7.0.1`.
-- **Clash** — confirmed working with `loopback-address: 10.7.0.1`.
-- **Karing** — confirmed working.
+### 当前实测配置不可用
 
-### Tested but not yet compatible with the current configuration
+- **Loon**
+- **Surge**
+- **Shadowrocket**
 
-- **Loon** — the tested TUN Only configuration can make a TCP socket appear reachable, but the real RemotePairing / Pair Verify path does not complete.
-- **Surge** — the tested configuration can also produce a false-positive TCP-ready state, while the real RemotePairing / Pair Verify path fails.
+这些结果只代表目前已经测试过的配置。PlaceDrift 的状态页不是单纯测试 TCP 端口，而是会向动态 RemotePairing 端口发送真实的 `RPPairing attemptPairVerify` 首帧并等待有效响应；只有协议级检测通过才显示绿色“已验证”。
 
-These results describe the tested configurations only; they do not rule out a future Loon or Surge configuration that implements the required self-device reflection.
+## TUN 要求
 
-### Pending
+请在当前 TUN 配置中启用：
 
-- **Egern**
-- Other iOS VPN/TUN tools that can provide an equivalent `10.7.0.1` self-device loopback route.
-
-## TUN configuration examples
+```text
+loopback-address 10.7.0.1
+```
 
 ### Clash Mi / Clash
 
@@ -51,85 +56,89 @@ tun:
 
 ### Karing
 
-The physical-device test that passed used the following minimal TUN settings:
+已通过实机测试的一组设置：
 
 ```text
-TUN: enabled
-IPv4: 10.20.0.1/30
+关闭新手模式
+TUN: 开启
 Loopback Address: 10.7.0.1
 Stack: gvisor
-Outbound: DIRECT
 ```
 
-Make sure `10.7.0.1` is not excluded by a broad route such as `10.0.0.0/8`.
+如果配置里存在会排除 `10.7.0.1` 的大范围路由（例如错误地把整个 `10.0.0.0/8` 排除在 TUN 外），RemotePairing 可能无法工作。
 
-Equivalent sing-box-style TUN configuration:
+## 安装
 
-```json
-{
-  "type": "tun",
-  "address": ["10.20.0.1/30"],
-  "auto_route": true,
-  "loopback_address": ["10.7.0.1"],
-  "stack": "gvisor"
-}
-```
+GitHub Release 提供的是 **unsigned IPA**。下载后需要使用你自己的开发者证书 / P12 + mobileprovision 或其它合法签名方式重新签名并安装。
 
-## PlaceDrift 0.2.1 Build 8
+安装时请保留主 App 内嵌的 `PlaceDriftShare.appex`，否则地图分享入口不会出现。
 
-Build 8 changes the transport indicator from a TCP-only probe to a **RemotePairing protocol-level probe**.
+建议首次使用前确认：
 
-The health check now does this:
+1. iPhone 已开启 **Developer Mode / 开发者模式**。
+2. 已安装并连接一个兼容的 TUN App。
+3. TUN 已启用 `10.7.0.1` self-loop。
+4. PlaceDrift 已获得本地网络权限。
 
-```text
-Discover `_remotepairing._tcp`
-  → connect to `10.7.0.1:<dynamic RemotePairing port>`
-  → send a real RPPairing `attemptPairVerify` handshake frame
-  → require a valid RPPairing handshake response
-  → only then show the transport as connected
-```
+## 首次配对
 
-This avoids the false green state seen with Loon and Surge, where a userspace TUN stack may report a TCP socket as ready even though packets are not actually reflected back to the iPhone RemotePairing service.
+1. 先连接兼容的 TUN，并确认 PlaceDrift 首页“传输”显示绿色 **已验证 · 10.7.0.1**。
+2. 在 PlaceDrift 中点击 **开始配对**。
+3. 打开：
 
-Build 8 also includes:
+   **设置 → 隐私与安全性 → 开发者模式 → 与主机配对**
 
-- Karing in the confirmed-compatible list;
-- Apple Maps, Amap / 高德地图, and Baidu Maps / 百度地图 share parsing;
-- map-share coordinate updates in the main UI;
-- saved-pairing protection so **Start Pairing** is hidden after a valid pairing record exists;
-- first-launch location permission requests and background keep-alive support;
-- App Shortcuts for a Location object, latitude/longitude, and Restore Real Location;
-- an original generated PlaceDrift app icon (map pin + motion trails), produced during CI so all required iPhone/iPad icon sizes are packaged in the IPA.
+4. 选择 **PlaceDrift**。
+5. 输入 PlaceDrift 页面显示的 PIN。
+6. 配对成功后，配对记录会保存在本机 Keychain。正常情况下以后无需重新配对。
 
-## Map sharing
+如果确实需要重新配对，请先在 PlaceDrift 中删除已保存的配对记录，再开始新的配对会话。
 
-1. Pair PlaceDrift with the iPhone.
-2. Leave **Enable Maps sharing** on.
-3. Grant PlaceDrift **Always** location access when requested. iOS controls when the upgrade prompt appears, so the second prompt may be deferred.
-4. Keep a compatible TUN/proxy app connected with the required `10.7.0.1` self-loop enabled.
-5. In a supported map app, choose a place and use **Share → PlaceDrift**.
+## 使用地图分享设置位置
 
-Supported parser paths:
+1. 保持兼容的 TUN App 已连接。
+2. 打开 PlaceDrift，确认：
+   - 配对：**已保存**
+   - 传输：**已验证 · 10.7.0.1**
+   - **启用地图分享** 已打开
+3. 建议把 PlaceDrift 的定位权限设置为 **始终**，用于维持后台分享接收器和 CoreDevice 会话。
+4. 在 Apple 地图、高德地图或百度地图中选择地点。
+5. 点击系统 **分享**。
+6. 选择 **PlaceDrift**。
+7. Share Extension 会显示 **“正在解析地图坐标…”**，随后把坐标直接发送到 PlaceDrift。
+8. PlaceDrift 会立即设置或更新 `LocationSimulation`。
 
-- **Apple Maps** — direct coordinate URLs and expanded Apple Maps share links.
-- **Amap / 高德地图** — common `p=`, `q=`, `lnglat=`, and `position=` forms, including expanded short links. GCJ-02 is converted to WGS-84 before LocationSimulation.
-- **Baidu Maps / 百度地图** — direct `location=` / `latlng=` forms, BD09MC `@x,y` map URLs, and page payloads exposing BD09MC `x/y` values. BD-09 / BD09MC is converted to WGS-84 before LocationSimulation.
+要回到真实定位，在 PlaceDrift 中点击 **恢复真实位置**。
 
-Some Baidu short links may only expose POI coordinates after page-script execution. Those cases may need a later WebKit fallback.
+如果 PlaceDrift 被系统或用户强制退出，请先重新打开 PlaceDrift，再使用地图分享。
 
-The embedded `PlaceDriftShare.appex` extracts coordinates from shared map content and forwards them over a loopback-only bridge to the running PlaceDrift session.
+## 地图解析
 
-If PlaceDrift has been force-quit, reopen it before using the share extension so the local receiver and background session can start again.
+地图解析全部在 iPhone 本机完成：
 
-## Shortcuts
+- **Apple 地图**：解析 Apple Maps 分享 URL / 坐标参数。
+- **高德地图**：支持短链跳转和常见坐标参数，并把 GCJ-02 转换为 WGS-84。
+- **百度地图**：支持分享文本、短链、BD-09 / BD09MC 数据；对需要页面脚本才能得到 POI 坐标的页面使用本机 WebKit 解析，再转换为 WGS-84。
 
-PlaceDrift exposes App Intents for:
+当前版本**不会请求 `wloc.xepesw.workers.dev` 或其它远程坐标解析 Worker**。
 
-- **Set PlaceDrift Location** — pass a Shortcuts `Location` directly;
-- **Set PlaceDrift Coordinates** — pass latitude and longitude as numbers;
-- **Restore Real Location**.
+## 后台运行
 
-## URL scheme
+PlaceDrift 使用 iOS Location 后台模式维持 CoreDevice 会话和地图分享接收器。为了尽量在锁屏 / 后台状态下继续接收地图分享，请允许 PlaceDrift **始终**访问位置。
+
+后台能力仍受 iOS 调度策略影响；Public Beta 阶段欢迎反馈不同设备和系统版本的长期锁屏表现。
+
+## 当前 Public Beta 不包含
+
+- Shortcuts / App Intents 坐标设置入口
+- 地图区域 / GeoServices Provider 切换实验
+- 内置 VPN 或代理功能
+
+这些功能不会影响当前已经验证的“地图直接分享到 PlaceDrift”主链路。
+
+## URL Scheme
+
+保留基础 Deep Link：
 
 ```text
 placedrift://set?lat=34.052235&lon=-118.243683
@@ -137,32 +146,40 @@ placedrift://clear
 placedrift://pair
 ```
 
-## Build
+## 从源码构建
 
-Requirements:
+需要：
 
 - macOS + Xcode
 - XcodeGen
 - Rust toolchain
 
-Run:
+执行：
 
 ```bash
 ./scripts/build-app.sh
 ```
 
-Output:
+输出：
 
 ```text
 .build/artifacts/PlaceDrift-unsigned.ipa
 ```
 
-The build script also generates the complete app-icon PNG set from `scripts/generate-app-icon.swift` before Xcode builds the target.
+## 隐私
 
-The unsigned IPA contains the embedded `PlaceDriftShare.appex`. The main app and extension must both remain signed as part of the same installed bundle.
+- 配对记录与 CoreDevice 凭据保存在设备本机 Keychain。
+- 地图坐标默认在设备本地解析。
+- 不要把 pairing record、AltIRK 或其它设备私密凭据上传到 GitHub、网页或日志平台。
 
-For the current LCSugn test workflow, if an updated build will not overwrite the installed app, enabling **Remove Embedded** before re-signing has been confirmed to allow the update while keeping the same bundle identifier.
+## 反馈
 
-## Privacy
+如果遇到问题，建议提交 GitHub Issue，并注明：
 
-Pairing records and CoreDevice credentials remain on-device and are stored in Keychain. Do not upload pairing records, AltIRK material, or private device credentials to GitHub, web pages, or analytics services.
+- iOS 版本
+- 使用的 TUN App 与版本
+- `10.7.0.1` loopback 配置
+- PlaceDrift 首页“传输”状态
+- 问题发生在配对、地图分享、后台保持还是恢复真实位置
+
+请不要在公开 Issue 中上传任何配对密钥或设备私密凭据。
