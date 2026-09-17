@@ -67,7 +67,7 @@ final class ShareViewController: UIViewController {
         let urls: [URL]
         let texts: [String]
 
-        var workerText: String {
+        var combinedText: String {
             var parts = texts
             parts.append(contentsOf: urls.map(\.absoluteString))
             var seen = Set<String>()
@@ -140,36 +140,20 @@ final class ShareViewController: UIViewController {
     }
 
     private func resolve(_ input: SharedMapInput) {
-        // WLOC Shortcuts passes the complete shared text to /api/parse. Check all
-        // attachments locally first instead of discarding the richer text payload.
+        // Build 11 is deliberately local-first. Most WLOC /api/parse behavior is
+        // already mirrored by MapShareCoordinateParser + MapShareRedirectResolver.
+        // The Cloudflare Worker is kept only as the final compatibility fallback.
         for text in input.texts {
             if let coordinate = MapShareCoordinateParser.parse(text: text, providerHint: .unknown, allowBare: false) {
-                send(coordinate)
+                send(coordinate, source: "Local direct parser")
                 return
             }
         }
         for url in input.urls {
             if let coordinate = MapShareCoordinateParser.parse(url: url) {
-                send(coordinate)
+                send(coordinate, source: "Local direct parser")
                 return
             }
-        }
-
-        let raw = input.workerText
-        if !raw.isEmpty {
-            statusLabel.text = NSLocalizedString("Resolving with WLOC parser…", comment: "WLOC worker fallback status")
-            let worker = WLOCWorkerCoordinateResolver()
-            workerResolver = worker
-            worker.resolve(rawSharedInput: raw) { [weak self] coordinate in
-                guard let self else { return }
-                self.workerResolver = nil
-                if let coordinate {
-                    self.send(coordinate)
-                    return
-                }
-                self.resolveRedirects(input.urls, index: 0, originalInput: input)
-            }
-            return
         }
 
         resolveRedirects(input.urls, index: 0, originalInput: input)
@@ -182,14 +166,14 @@ final class ShareViewController: UIViewController {
         }
 
         let url = urls[index]
-        statusLabel.text = NSLocalizedString("Resolving map link…", comment: "Share extension resolving status")
+        statusLabel.text = NSLocalizedString("Resolving map link locally…", comment: "Share extension local resolving status")
         let resolver = MapShareRedirectResolver()
         self.resolver = resolver
         resolver.resolve(url) { [weak self] coordinate in
             guard let self else { return }
             self.resolver = nil
             if let coordinate {
-                self.send(coordinate)
+                self.send(coordinate, source: "Local redirect/page parser")
             } else {
                 self.resolveRedirects(urls, index: index + 1, originalInput: originalInput)
             }
@@ -201,9 +185,9 @@ final class ShareViewController: UIViewController {
             ?? input.texts.compactMap(Self.firstURL(in:)).first { MapShareCoordinateParser.provider(for: $0) == .baidu }
 
         if let baiduURL {
-            resolveBaiduWithWebView(baiduURL)
+            resolveBaiduWithWebView(baiduURL, originalInput: input)
         } else {
-            showError(NSLocalizedString("Could not extract coordinates from this map link.", comment: "Share extension coordinate failure"))
+            resolveWithWorkerFallback(input)
         }
     }
 
@@ -213,34 +197,69 @@ final class ShareViewController: UIViewController {
         return detector.firstMatch(in: text, options: [], range: range)?.url
     }
 
-    private func resolveBaiduWithWebView(_ url: URL) {
-        statusLabel.text = NSLocalizedString("Resolving Baidu map page…", comment: "Baidu WebKit fallback status")
+    private func resolveBaiduWithWebView(_ url: URL, originalInput: SharedMapInput) {
+        statusLabel.text = NSLocalizedString("Resolving Baidu map page locally…", comment: "Baidu WebKit local fallback status")
         let resolver = BaiduWebViewCoordinateResolver()
         baiduResolver = resolver
         resolver.resolve(url, in: view) { [weak self, weak resolver] coordinate in
             guard let self else { return }
             let diagnostic = resolver?.diagnosticSummary ?? "Baidu debug: resolver released"
             self.baiduResolver = nil
-            guard let coordinate else {
-                let message = NSLocalizedString("Could not extract coordinates from this map link.", comment: "Share extension coordinate failure")
-                self.showError(message + "\n\n" + diagnostic)
+            if let coordinate {
+                self.send(coordinate, source: "Local Baidu WebKit")
                 return
             }
-            self.send(coordinate)
+
+            // Dynamic Baidu pages can still change their script/API shape. Keep the
+            // user's Worker as the last fallback instead of making it a dependency.
+            self.resolveWithWorkerFallback(originalInput, diagnostic: diagnostic)
         }
     }
 
-    private func send(_ coordinate: MapShareCoordinate) {
+    private func resolveWithWorkerFallback(_ input: SharedMapInput, diagnostic: String? = nil) {
+        let raw = input.combinedText
+        guard !raw.isEmpty else {
+            var message = NSLocalizedString("Could not extract coordinates from this map link.", comment: "Share extension coordinate failure")
+            if let diagnostic, !diagnostic.isEmpty {
+                message += "\n\n" + diagnostic
+            }
+            showError(message)
+            return
+        }
+
+        statusLabel.text = NSLocalizedString("Local parsing failed; trying WLOC Worker…", comment: "WLOC worker last fallback status")
+        let worker = WLOCWorkerCoordinateResolver()
+        workerResolver = worker
+        worker.resolve(rawSharedInput: raw) { [weak self] coordinate in
+            guard let self else { return }
+            self.workerResolver = nil
+            if let coordinate {
+                self.send(coordinate, source: "WLOC Worker fallback")
+                return
+            }
+
+            var message = NSLocalizedString("Could not extract coordinates from this map link.", comment: "Share extension coordinate failure")
+            if let diagnostic, !diagnostic.isEmpty {
+                message += "\n\n" + diagnostic
+            }
+            self.showError(message)
+        }
+    }
+
+    private func send(_ coordinate: MapShareCoordinate, source: String) {
         statusLabel.text = NSLocalizedString("Sending location to PlaceDrift…", comment: "Share extension sending status")
         let client = ShareBridgeClient()
         bridgeClient = client
-        client.send(coordinate: coordinate) { [weak self] success in
+        client.send(coordinate: coordinate, source: source) { [weak self] success in
             guard let self else { return }
             self.bridgeClient = nil
             if success {
                 self.spinner.stopAnimating()
-                self.statusLabel.text = NSLocalizedString("Location sent to PlaceDrift.", comment: "Share extension success")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                self.statusLabel.text = String(
+                    format: NSLocalizedString("Location sent to PlaceDrift. Parser: %@", comment: "Share extension success with parser source"),
+                    source
+                )
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
                     self?.extensionContext?.completeRequest(returningItems: nil)
                 }
             } else {
@@ -257,7 +276,9 @@ final class ShareViewController: UIViewController {
     }
 
     @objc private func closeTapped() {
+        resolver = nil
         workerResolver?.cancel()
+        baiduResolver = nil
         extensionContext?.completeRequest(returningItems: nil)
     }
 }
@@ -268,14 +289,16 @@ private final class ShareBridgeClient {
     private var completion: ((Bool) -> Void)?
     private var finished = false
     private var didSend = false
+    private var source = "Unknown"
 
-    func send(coordinate: MapShareCoordinate, completion: @escaping (Bool) -> Void) {
+    func send(coordinate: MapShareCoordinate, source: String, completion: @escaping (Bool) -> Void) {
         guard let port = NWEndpoint.Port(rawValue: PlaceDriftShareProtocol.port) else {
             completion(false)
             return
         }
 
         self.completion = completion
+        self.source = source
         let connection = NWConnection(host: "127.0.0.1", port: port, using: .tcp)
         self.connection = connection
 
@@ -302,7 +325,11 @@ private final class ShareBridgeClient {
         didSend = true
 
         guard var data = try? JSONEncoder().encode(
-            PlaceDriftShareProtocol.Payload(latitude: coordinate.latitude, longitude: coordinate.longitude)
+            PlaceDriftShareProtocol.Payload(
+                latitude: coordinate.latitude,
+                longitude: coordinate.longitude,
+                source: source
+            )
         ) else {
             finish(false)
             return
