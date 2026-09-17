@@ -19,8 +19,6 @@ targets:
     sources:
       - path: App
       - path: Shared
-      - path: ShareExtension/AppleMapsCoordinateResolver.swift
-      - path: ShareExtension/BaiduWebViewCoordinateResolver.swift
     dependencies:
       - target: PlaceDriftShare
         embed: true
