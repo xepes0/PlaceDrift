@@ -1,10 +1,10 @@
-"Reading Maps location…" = "正在读取地图位置…";
+"Reading Maps location…" = "正在解析地图坐标…";
 "Close" = "关闭";
 "No supported map link was found in the shared item." = "分享内容中没有找到支持的地图链接。";
-"Resolving map link…" = "正在解析地图链接…";
-"Resolving map link locally…" = "正在解析地图链接…";
-"Resolving Baidu map page…" = "正在解析百度地图页面…";
-"Resolving Baidu map page locally…" = "正在解析百度地图页面…";
+"Resolving map link…" = "正在解析地图坐标…";
+"Resolving map link locally…" = "正在解析地图坐标…";
+"Resolving Baidu map page…" = "正在解析地图坐标…";
+"Resolving Baidu map page locally…" = "正在解析地图坐标…";
 "Could not extract coordinates from this map link." = "无法从这个地图链接中提取坐标。";
 "Could not extract coordinates from this map link locally." = "无法从这个地图链接中提取坐标。";
 "Sending location to PlaceDrift…" = "正在把位置发送到 PlaceDrift…";
