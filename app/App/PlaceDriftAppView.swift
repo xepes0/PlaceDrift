@@ -4,7 +4,6 @@ struct PlaceDriftAppView: View {
     @ObservedObject var controller: CoreDeviceController
     @StateObject private var transportMonitor = TransportHealthMonitor()
     @StateObject private var permissionRequester = InitialPermissionRequester()
-    @StateObject private var mapRegionController = MapRegionController()
 
     @State private var latitude = "34.052235"
     @State private var longitude = "-118.243683"
@@ -140,7 +139,7 @@ struct PlaceDriftAppView: View {
                             .foregroundStyle(.green)
                     }
 
-                    Text("Share a place from Apple Maps, Amap, or Baidu Maps to PlaceDrift. The shared location is sent directly to the running CoreDevice session; Shortcuts are not required.")
+                    Text("Share a place from Apple Maps, Amap, or Baidu Maps to PlaceDrift. The shared location is sent directly to the running CoreDevice session.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
 
@@ -151,37 +150,8 @@ struct PlaceDriftAppView: View {
                     }
                 }
 
-                Section("Shortcuts") {
-                    Text("Use the one-field coordinate-text action to avoid the cached two-parameter Shortcuts schema. Pass one value such as 22.293882,114.174130.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Map region (experimental)") {
-                    LabeledContent("GeoServices country", value: mapRegionController.currentCountryCode)
-                    LabeledContent("Region layer", value: NSLocalizedString(mapRegionController.status, comment: "Map region experimental status"))
-
-                    Button("Apply US GeoServices region") {
-                        mapRegionController.applyUSRegion()
-                    }
-
-                    Button("Restore saved GeoServices region", role: .destructive) {
-                        mapRegionController.restoreSavedRegion()
-                    }
-
-                    if let error = mapRegionController.lastError {
-                        Text(error)
-                            .foregroundStyle(.red)
-                            .font(.footnote)
-                    }
-
-                    Text("This layer is separate from DVT LocationSimulation. It writes GeoServices' DeviceCountryCodeSourced value and posts the country-change notification used by Maps. It is experimental: the screen reports the read-back value so we can tell whether iOS accepted the region change before judging the Apple Maps provider switch.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
                 Section("Runtime requirement") {
-                    Text("Enable loopback-address 10.7.0.1 in the active TUN configuration. Tested working: LocalDevVPN, Clash Mi, Clash, and Karing. Loon and Surge currently fail the RemotePairing protocol check in the tested configurations; Egern is pending verification. PlaceDrift does not start a VPN.")
+                    Text("Enable loopback-address 10.7.0.1 in the active TUN configuration. Tested working: LocalDevVPN, Clash Mi, Clash, Karing. Loon, Surge, and Shadowrocket currently fail the RemotePairing protocol check in the tested configurations. PlaceDrift itself does not start a VPN.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -195,7 +165,6 @@ struct PlaceDriftAppView: View {
         .onAppear {
             controller.refreshPairingState()
             transportMonitor.refresh()
-            mapRegionController.refresh()
             permissionRequester.requestIfNeeded()
         }
         .task {
