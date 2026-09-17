@@ -48,16 +48,31 @@
 "Map sharing updates these coordinates automatically." = "从地图分享位置后，这里的经纬度会自动更新。";
 
 "Shortcuts" = "快捷指令";
-"You can pass a Shortcuts Location directly to PlaceDrift, pass latitude and longitude, or restore the real location." = "可在快捷指令中直接把“位置”传给 PlaceDrift，也可以传入纬度和经度，或恢复真实位置。";
+"Build 11 adds a new one-field coordinate action to avoid the cached two-parameter Shortcuts schema. Pass one value such as 22.293882,114.174130." = "Build 11 新增了一个单输入框的坐标动作，用来绕过旧版双参数快捷指令的缓存问题。只需传入类似 22.293882,114.174130 的一个值。";
 "Set PlaceDrift Location" = "设置 PlaceDrift 位置";
 "Send a Shortcuts location directly to PlaceDrift and start LocationSimulation." = "将快捷指令中的“位置”直接发送到 PlaceDrift，并启动模拟定位。";
 "Set PlaceDrift Coordinates" = "设置 PlaceDrift 坐标";
 "Pass latitude and longitude to PlaceDrift and start LocationSimulation." = "将纬度和经度传给 PlaceDrift，并启动模拟定位。";
+"Set PlaceDrift Coordinate Text" = "设置 PlaceDrift 坐标文本";
+"Pass one coordinate pair such as 22.293882,114.174130 to PlaceDrift." = "向 PlaceDrift 传入一个坐标文本，例如 22.293882,114.174130。";
+"Coordinates" = "坐标";
 "Clear PlaceDrift LocationSimulation and restore the real device location." = "清除 PlaceDrift 模拟定位并恢复设备真实位置。";
 "Pair PlaceDrift with This iPhone" = "将 PlaceDrift 与此 iPhone 配对";
 "Open PlaceDrift and begin CoreDevice RemotePairing." = "打开 PlaceDrift 并开始 CoreDevice RemotePairing 配对。";
 "The selected location has no coordinates." = "所选位置没有可用坐标。";
 "No coordinates were received from Shortcuts." = "没有从快捷指令收到坐标。请检查上一步解析结果。";
+
+"Map region (experimental)" = "地图区域切换（实验）";
+"GeoServices country" = "GeoServices 国家/地区";
+"Region layer" = "区域切换层";
+"Apply US GeoServices region" = "切换到美国 GeoServices 区域";
+"Restore saved GeoServices region" = "恢复保存的 GeoServices 区域";
+"Not applied" = "未应用";
+"US GeoServices region applied" = "已应用美国 GeoServices 区域";
+"Saved GeoServices region restored" = "已恢复保存的 GeoServices 区域";
+"No saved region to restore" = "没有可恢复的已保存区域";
+"GeoServices region write failed" = "GeoServices 区域写入失败";
+"This layer is separate from DVT LocationSimulation. It writes GeoServices' DeviceCountryCodeSourced value and posts the country-change notification used by Maps. It is experimental: the screen reports the read-back value so we can tell whether iOS accepted the region change before judging the Apple Maps provider switch." = "这个区域切换层与 DVT LocationSimulation 完全分开。它会尝试写入 GeoServices 的 DeviceCountryCodeSourced，并发送地图使用的国家/地区变更通知。此功能仍属实验：界面会显示回读值，先确认 iOS 是否接受区域修改，再判断 Apple 地图是否真正从高德绑定切换出去。";
 
 "Runtime requirement" = "运行要求";
 "Enable loopback-address 10.7.0.1 in the active TUN configuration. Tested working: LocalDevVPN, Clash Mi, Clash, and Karing. Loon and Surge currently fail the RemotePairing protocol check in the tested configurations; Egern is pending verification. PlaceDrift does not start a VPN." = "请在当前 TUN 配置中启用 loopback-address 10.7.0.1。已实测可用：LocalDevVPN、Clash Mi、Clash、Karing。Loon 与 Surge 在当前实测配置下无法通过 RemotePairing 协议检测；Egern 待测试。PlaceDrift 本身不会启动 VPN。";
