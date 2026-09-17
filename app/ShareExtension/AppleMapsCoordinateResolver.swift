@@ -25,7 +25,7 @@ enum MapShareCoordinateParser {
         [1.410526172116255e-8, 0.00000898305509648872, -1.9939833816331, 200.9824383106796, -187.2403703815547, 91.6087516669843, -23.38765649603339, 2.57121317296198, -0.03801003308653, 17337981.2],
         [-7.435856389565537e-9, 0.000008983055097726239, -0.78625201886289, 96.32687599759846, -1.85204757529826, -59.36935905485877, 47.40033549296737, -16.50741931063887, 2.28786674699375, 10260144.86],
         [-3.030883460898826e-8, 0.00000898305509983578, 0.30071316287616, 59.74293618442277, 7.357984074871, -25.38371002664745, 13.45380521110908, -3.29883767235584, 0.32710905363475, 6856817.37],
-        [-1.981981304930552e-8, 0.000008983055099779535, 0.03278182852591, 40.31678527705744, 0.65659298677277, -4.44255534477492, 0.85341911805263, 0.12923347998204, -0.04625736007561, 4482777.06],
+        [-1.981981304930552e-8, 0.000008983055099779535, 0.03278182852591, 40.31678527705744, 0.65659298677257, -4.44255534477492, 0.85341911805263, 0.12923347998204, -0.04625736007561, 4482777.06],
         [3.09191371068437e-9, 0.000008983055096812155, 0.00006995724062, 23.10934304144901, -0.00023663490511, -0.6321817810242, -0.00663494467273, 0.03430082397953, -0.00466043876332, 2555164.4],
         [2.890871144776878e-9, 0.000008983055095805407, -3.068298e-8, 7.47137025468032, -0.00000353937994, -0.02145144861037, -0.00001234426596, 0.00010322952773, -0.00000323890364, 826088.5],
     ]
@@ -52,23 +52,37 @@ enum MapShareCoordinateParser {
 
     static func parse(text: String, providerHint: MapProvider = .unknown, allowBare: Bool = false) -> MapShareCoordinate? {
         guard !text.isEmpty else { return nil }
-        let decoded = text.removingPercentEncoding ?? text
-        let provider = providerHint == .unknown ? providerFromText(decoded) : providerHint
 
-        if let coordinate = parseApple(decoded, provider: provider) {
-            return coordinate
+        // Amap short-link redirects can contain nested percent-encoding. Keep the
+        // original string and progressively decoded variants so both literal
+        // commas and %2C / %252C forms can be recognized.
+        var candidates = [text]
+        var current = text
+        for _ in 0..<3 {
+            guard let decoded = current.removingPercentEncoding, decoded != current else { break }
+            candidates.append(decoded)
+            current = decoded
         }
-        if let coordinate = parseAmap(decoded, provider: provider) {
-            return coordinate
-        }
-        if let coordinate = parseBaidu(decoded, provider: provider) {
-            return coordinate
-        }
-        if allowBare,
-           let pair = firstMatch(#"(-?\d{1,3}\.\d{4,})\s*,\s*(-?\d{1,3}\.\d{4,})"#, in: decoded),
-           let latitude = Double(pair[1]),
-           let longitude = Double(pair[2]) {
-            return validated(latitude: latitude, longitude: longitude)
+
+        for candidate in candidates {
+            let provider = providerHint == .unknown ? providerFromText(candidate) : providerHint
+
+            if let coordinate = parseApple(candidate, provider: provider) {
+                return coordinate
+            }
+            if let coordinate = parseAmap(candidate, provider: provider) {
+                return coordinate
+            }
+            if let coordinate = parseBaidu(candidate, provider: provider) {
+                return coordinate
+            }
+            if allowBare,
+               let pair = firstMatch(#"(-?\d{1,3}\.\d{4,})\s*(?:,|%2C)\s*(-?\d{1,3}\.\d{4,})"#, in: candidate),
+               let latitude = Double(pair[1]),
+               let longitude = Double(pair[2]),
+               let validated = validated(latitude: latitude, longitude: longitude) {
+                return validated
+            }
         }
         return nil
     }
@@ -89,30 +103,29 @@ enum MapShareCoordinateParser {
 
     private static func parseApple(_ text: String, provider: MapProvider) -> MapShareCoordinate? {
         guard provider == .apple || provider == .unknown else { return nil }
-        guard let match = firstMatch(#"(?:^|[?&])(?:coordinate|ll|sll|center)=(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)"#, in: text),
+        guard let match = firstMatch(#"(?:^|[?&])(?:coordinate|ll|sll|center)=(-?\d{1,3}(?:\.\d+)?)(?:,|%2C)(-?\d{1,3}(?:\.\d+)?)"#, in: text),
               let latitude = Double(match[1]),
               let longitude = Double(match[2]) else { return nil }
 
-        // Keep Apple Maps behavior unchanged from the already validated PlaceDrift path.
         return validated(latitude: latitude, longitude: longitude)
     }
 
     private static func parseAmap(_ text: String, provider: MapProvider) -> MapShareCoordinate? {
         guard provider == .amap else { return nil }
 
-        if let match = firstMatch(#"(?:^|[?&])p=[^,&]*,(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)"#, in: text),
+        if let match = firstMatch(#"(?:^|[?&])p=[^,&%]*(?:,|%2C)(-?\d{1,3}(?:\.\d+)?)(?:,|%2C)(-?\d{1,3}(?:\.\d+)?)"#, in: text),
            let latitude = Double(match[1]),
            let longitude = Double(match[2]) {
             return fromGCJ02(latitude: latitude, longitude: longitude)
         }
 
-        if let match = firstMatch(#"(?:^|[?&])q=(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)"#, in: text),
+        if let match = firstMatch(#"(?:^|[?&])q=(-?\d{1,3}(?:\.\d+)?)(?:,|%2C)(-?\d{1,3}(?:\.\d+)?)"#, in: text),
            let latitude = Double(match[1]),
            let longitude = Double(match[2]) {
             return fromGCJ02(latitude: latitude, longitude: longitude)
         }
 
-        if let match = firstMatch(#"(?:^|[?&])(?:lnglat|position)=(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)"#, in: text),
+        if let match = firstMatch(#"(?:^|[?&])(?:lnglat|position)=(-?\d{1,3}(?:\.\d+)?)(?:,|%2C)(-?\d{1,3}(?:\.\d+)?)"#, in: text),
            let longitude = Double(match[1]),
            let latitude = Double(match[2]) {
             return fromGCJ02(latitude: latitude, longitude: longitude)
@@ -124,13 +137,13 @@ enum MapShareCoordinateParser {
     private static func parseBaidu(_ text: String, provider: MapProvider) -> MapShareCoordinate? {
         guard provider == .baidu else { return nil }
 
-        if let match = firstMatch(#"(?:^|[?&])(?:location|latlng)=(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)"#, in: text),
+        if let match = firstMatch(#"(?:^|[?&])(?:location|latlng)=(-?\d{1,3}(?:\.\d+)?)(?:,|%2C)(-?\d{1,3}(?:\.\d+)?)"#, in: text),
            let latitude = Double(match[1]),
            let longitude = Double(match[2]) {
             return fromBD09(latitude: latitude, longitude: longitude)
         }
 
-        if let match = firstMatch(#"@(-?\d{6,9}(?:\.\d+)?),(-?\d{6,9}(?:\.\d+)?)"#, in: text),
+        if let match = firstMatch(#"@(-?\d{6,9}(?:\.\d+)?)(?:,|%2C)(-?\d{6,9}(?:\.\d+)?)"#, in: text),
            let x = Double(match[1]),
            let y = Double(match[2]),
            let bd09 = bd09mcToBd09(x: x, y: y) {
@@ -279,16 +292,31 @@ final class MapShareRedirectResolver: NSObject, URLSessionTaskDelegate {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X) AppleWebKit/605.1.15", forHTTPHeaderField: "User-Agent")
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/24A5370h Safari/604.1", forHTTPHeaderField: "User-Agent")
+        request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
         request.setValue("zh-CN,zh-Hans;q=0.9,en;q=0.5", forHTTPHeaderField: "Accept-Language")
 
         session.dataTask(with: request) { [weak self] data, response, _ in
             guard let self else { return }
 
-            if let responseURL = response?.url,
-               let coordinate = MapShareCoordinateParser.parse(url: responseURL) {
+            if let http = response as? HTTPURLResponse,
+               let rawLocation = http.value(forHTTPHeaderField: "Location"),
+               let coordinate = self.coordinate(fromRedirectLocation: rawLocation, baseURL: http.url) {
                 self.finish(coordinate)
                 return
+            }
+
+            if let responseURL = response?.url {
+                let provider = MapShareCoordinateParser.provider(for: responseURL)
+                let hint = provider == .unknown ? self.originalProvider : provider
+                if let coordinate = MapShareCoordinateParser.parse(
+                    text: responseURL.absoluteString,
+                    providerHint: hint,
+                    allowBare: false
+                ) {
+                    self.finish(coordinate)
+                    return
+                }
             }
 
             if let data {
@@ -314,14 +342,51 @@ final class MapShareRedirectResolver: NSObject, URLSessionTaskDelegate {
         newRequest request: URLRequest,
         completionHandler: @escaping (URLRequest?) -> Void
     ) {
-        if let url = request.url,
-           let coordinate = MapShareCoordinateParser.parse(url: url) {
+        if let rawLocation = response.value(forHTTPHeaderField: "Location"),
+           let coordinate = coordinate(fromRedirectLocation: rawLocation, baseURL: response.url) {
             finish(coordinate)
             completionHandler(nil)
             return
         }
 
+        if let url = request.url {
+            let provider = MapShareCoordinateParser.provider(for: url)
+            let hint = provider == .unknown ? originalProvider : provider
+            if let coordinate = MapShareCoordinateParser.parse(
+                text: url.absoluteString,
+                providerHint: hint,
+                allowBare: false
+            ) {
+                finish(coordinate)
+                completionHandler(nil)
+                return
+            }
+        }
+
         completionHandler(request)
+    }
+
+    private func coordinate(fromRedirectLocation rawLocation: String, baseURL: URL?) -> MapShareCoordinate? {
+        if let coordinate = MapShareCoordinateParser.parse(
+            text: rawLocation,
+            providerHint: originalProvider,
+            allowBare: false
+        ) {
+            return coordinate
+        }
+
+        if let baseURL,
+           let absoluteURL = URL(string: rawLocation, relativeTo: baseURL)?.absoluteURL {
+            let provider = MapShareCoordinateParser.provider(for: absoluteURL)
+            let hint = provider == .unknown ? originalProvider : provider
+            return MapShareCoordinateParser.parse(
+                text: absoluteURL.absoluteString,
+                providerHint: hint,
+                allowBare: false
+            )
+        }
+
+        return nil
     }
 
     private func finish(_ coordinate: MapShareCoordinate?) {

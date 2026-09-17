@@ -10,10 +10,12 @@ private enum PlaceDriftShortcutCommand: Codable {
 enum PlaceDriftShortcutRouter {
     private static let pendingCommandKey = "placedrift.shortcut.pending-command"
     private static var controller: CoreDeviceController?
+    private static var pendingRetryTask: Task<Void, Never>?
 
     static func attach(_ controller: CoreDeviceController) {
         self.controller = controller
-        consumePendingCommand()
+        _ = consumePendingCommand()
+        schedulePendingCommandRetries()
     }
 
     static func setLocation(latitude: Double, longitude: Double) {
@@ -36,15 +38,38 @@ enum PlaceDriftShortcutRouter {
         apply(command, to: controller)
     }
 
-    private static func consumePendingCommand() {
+    @discardableResult
+    private static func consumePendingCommand() -> Bool {
         guard
             let data = UserDefaults.standard.data(forKey: pendingCommandKey),
             let command = try? JSONDecoder().decode(PlaceDriftShortcutCommand.self, from: data),
             let controller
-        else { return }
+        else { return false }
 
         UserDefaults.standard.removeObject(forKey: pendingCommandKey)
         apply(command, to: controller)
+        return true
+    }
+
+    private static func schedulePendingCommandRetries() {
+        pendingRetryTask?.cancel()
+        pendingRetryTask = Task { @MainActor in
+            // openAppWhenRun can make the main app's onAppear fire just before
+            // the App Intent process writes the pending command. Recheck for a
+            // short window so the command is consumed during the same Shortcut run.
+            let delays: [UInt64] = [200_000_000, 500_000_000, 1_000_000_000, 1_500_000_000]
+            for delay in delays {
+                do {
+                    try await Task.sleep(nanoseconds: delay)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                if consumePendingCommand() {
+                    return
+                }
+            }
+        }
     }
 
     private static func savePendingCommand(_ command: PlaceDriftShortcutCommand) {
