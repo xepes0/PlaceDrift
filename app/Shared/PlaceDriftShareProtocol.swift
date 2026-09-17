@@ -1,7 +1,7 @@
 import Foundation
 
 enum PlaceDriftShareProtocol {
-    static let version = 1
+    static let version = 2
 
     // SideStore/re-signed builds can leave another signed copy or process holding
     // the original fixed port. Both the host app and Share Extension use this
