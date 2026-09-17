@@ -135,17 +135,12 @@ struct PlaceDriftAppView: View {
                         value: NSLocalizedString(backgroundStateText, comment: "Background keepalive state")
                     )
 
-                    LabeledContent(
-                        "Map parser",
-                        value: NSLocalizedString("Local only", comment: "Map parser mode")
-                    )
-
                     if controller.mapSharingReady {
                         Label("Ready for map sharing", systemImage: "square.and.arrow.up.fill")
                             .foregroundStyle(.green)
                     }
 
-                    Text("Share a place from Apple Maps, Amap, or Baidu Maps to PlaceDrift. Coordinate parsing is performed locally on this iPhone and does not use the WLOC Worker.")
+                    Text("Share a place from Apple Maps, Amap, or Baidu Maps to PlaceDrift. The shared location is sent directly to the running CoreDevice session; Shortcuts are not required.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
 
