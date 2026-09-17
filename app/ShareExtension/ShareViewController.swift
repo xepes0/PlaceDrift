@@ -40,7 +40,7 @@ final class ShareViewController: UIViewController {
             stack.trailingAnchor.constraint(lessThanOrEqualTo: view.layoutMarginsGuide.trailingAnchor),
             stack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             stack.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            statusLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 320),
+            statusLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 340),
         ])
     }
 
@@ -164,11 +164,13 @@ final class ShareViewController: UIViewController {
         statusLabel.text = NSLocalizedString("Resolving Baidu map page…", comment: "Baidu WebKit fallback status")
         let resolver = BaiduWebViewCoordinateResolver()
         baiduResolver = resolver
-        resolver.resolve(url, in: view) { [weak self] coordinate in
+        resolver.resolve(url, in: view) { [weak self, weak resolver] coordinate in
             guard let self else { return }
+            let diagnostic = resolver?.diagnosticSummary ?? "Baidu debug: resolver released"
             self.baiduResolver = nil
             guard let coordinate else {
-                self.showError(NSLocalizedString("Could not extract coordinates from this map link.", comment: "Share extension coordinate failure"))
+                let message = NSLocalizedString("Could not extract coordinates from this map link.", comment: "Share extension coordinate failure")
+                self.showError(message + "\n\n" + diagnostic)
                 return
             }
             self.send(coordinate)
@@ -196,6 +198,7 @@ final class ShareViewController: UIViewController {
 
     private func showError(_ message: String) {
         spinner.stopAnimating()
+        statusLabel.font = message.contains("Baidu debug:") ? .systemFont(ofSize: 13) : .preferredFont(forTextStyle: .body)
         statusLabel.text = message
         closeButton.isHidden = false
     }
