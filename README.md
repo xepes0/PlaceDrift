@@ -2,15 +2,17 @@
 
 PlaceDrift 是一个面向 **iOS 27+** 的 CoreDevice 虚拟定位工具。它在 iPhone 本机完成 RemotePairing / DVT `LocationSimulation` 链路，并支持从 **Apple 地图、高德地图、百度地图**直接分享地点到 PlaceDrift。
 
-> **Public Beta 1 — 0.2.1 (Build 15)**
+> **Public Beta 2 — 0.2.1 (Build 17)**
 >
 > 当前版本以“地图 App → 分享 → PlaceDrift”为唯一推荐入口。地图坐标解析全部在本机完成，不依赖 WLOC Worker，也不再提供 Shortcuts 坐标入口或实验性的地图区域切换功能。
+>
+> Beta 2 重点修复 **SideStore 重签后地图分享接收器无法启动**的问题：主 App 会在本机 loopback 端口池 `57874...57889` 中自动选择可用端口，Share Extension 会自动探测并连接当前实例；分享协议同时升级为 v2，避免旧版本实例误接收新版本数据。
 
 ## 下载
 
-**[⬇️ 直接下载 PlaceDrift 0.2.1 Public Beta 1 unsigned IPA](https://github.com/xepes0/PlaceDrift/releases/download/v0.2.1-beta.1/PlaceDrift-0.2.1-Public-Beta-1-unsigned.ipa)**
+**[⬇️ 直接下载 PlaceDrift 0.2.1 Public Beta 2 unsigned IPA](https://github.com/xepes0/PlaceDrift/releases/download/v0.2.1-beta.2/PlaceDrift-0.2.1-Public-Beta-2-unsigned.ipa)**
 
-**[📦 查看 GitHub Release / 更新说明](https://github.com/xepes0/PlaceDrift/releases/tag/v0.2.1-beta.1)**
+**[📦 查看 GitHub Release / 更新说明](https://github.com/xepes0/PlaceDrift/releases/tag/v0.2.1-beta.2)**
 
 > Release 提供的是 **unsigned IPA**。请使用你自己的合法开发者证书 / P12 + mobileprovision 或其它合法签名方式重新签名后安装，并保留内嵌的 `PlaceDriftShare.appex`。
 
@@ -81,6 +83,8 @@ Stack: gvisor
 
 安装时请保留主 App 内嵌的 `PlaceDriftShare.appex`，否则地图分享入口不会出现。
 
+Beta 2 已实测修复 SideStore 重签后的地图分享桥兼容问题。如果你使用 SideStore 安装，打开 PlaceDrift 后建议先确认“地图分享 → 分享接收器”显示 **监听中**，再从地图 App 分享地点。
+
 建议首次使用前确认：
 
 1. iPhone 已开启 **Developer Mode / 开发者模式**。
@@ -109,6 +113,7 @@ Stack: gvisor
    - 配对：**已保存**
    - 传输：**已验证 · 10.7.0.1**
    - **启用地图分享** 已打开
+   - 分享接收器：**监听中**
 3. 建议把 PlaceDrift 的定位权限设置为 **始终**，用于维持后台分享接收器和 CoreDevice 会话。
 4. 在 Apple 地图、高德地图或百度地图中选择地点。
 5. 点击系统 **分享**。
@@ -188,6 +193,7 @@ placedrift://pair
 - 使用的 TUN App 与版本
 - `10.7.0.1` loopback 配置
 - PlaceDrift 首页“传输”状态
+- 地图分享“分享接收器”状态
 - 问题发生在配对、地图分享、后台保持还是恢复真实位置
 
 请不要在公开 Issue 中上传任何配对密钥或设备私密凭据。
