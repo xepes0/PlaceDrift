@@ -2,6 +2,7 @@
 "Close" = "关闭";
 "No supported map link was found in the shared item." = "分享内容中没有找到支持的地图链接。";
 "Resolving map link…" = "正在解析地图链接…";
+"Resolving Baidu map page…" = "正在解析百度地图页面…";
 "Could not extract coordinates from this map link." = "无法从这个地图链接中提取坐标。";
 "Sending location to PlaceDrift…" = "正在把位置发送到 PlaceDrift…";
 "Location sent to PlaceDrift." = "位置已发送到 PlaceDrift。";
