@@ -16,6 +16,30 @@ private enum PlaceDriftShortcutError: LocalizedError {
     }
 }
 
+private func parseShortcutCoordinate(_ value: String?) -> Double? {
+    guard var text = value?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
+        return nil
+    }
+
+    // Dictionary values returned by WLOC /api/parse may reach App Intents through
+    // Shortcuts as text rather than as a native Double. Parse them inside PlaceDrift
+    // instead of asking Shortcuts to coerce the magic variable into a Double first.
+    text = text
+        .replacingOccurrences(of: "−", with: "-")
+        .replacingOccurrences(of: "＋", with: "+")
+        .replacingOccurrences(of: "，", with: ",")
+
+    if let direct = Double(text) {
+        return direct
+    }
+
+    // Also tolerate a simple localized decimal comma when there is no decimal point.
+    if !text.contains("."), text.filter({ $0 == "," }).count == 1 {
+        return Double(text.replacingOccurrences(of: ",", with: "."))
+    }
+    return nil
+}
+
 struct SetPlaceDriftLocationIntent: AppIntent {
     static var title: LocalizedStringResource = "Set PlaceDrift Location"
     static var description = IntentDescription("Send a Shortcuts location directly to PlaceDrift and start LocationSimulation.")
@@ -48,19 +72,22 @@ struct SetPlaceDriftCoordinatesIntent: AppIntent {
     static var description = IntentDescription("Pass latitude and longitude to PlaceDrift and start LocationSimulation.")
     static var openAppWhenRun: Bool = true
 
-    // Optional parameters are intentional. When an upstream Shortcuts action (for
-    // example a map-link parser) returns no value, required AppIntent parameters make
-    // Shortcuts fall back to an interactive "enter latitude/longitude" prompt. That
-    // hides the real failure. Optional values let PlaceDrift report a missing upstream
-    // coordinate instead, while normal numeric magic variables continue to work.
+    // WLOC's proven Shortcut path takes lat/lon from a JSON dictionary and inserts
+    // them into a URL as text. Using Double here made App Intents perform its own
+    // runtime type resolution; when that failed, Shortcuts treated the parameter as
+    // missing and displayed an interactive latitude/longitude prompt. Accept text and
+    // parse it ourselves so dictionary magic variables arrive unchanged.
     @Parameter(title: "Latitude")
-    var latitude: Double?
+    var latitude: String?
 
     @Parameter(title: "Longitude")
-    var longitude: Double?
+    var longitude: String?
 
     func perform() async throws -> some IntentResult {
-        guard let latitude, let longitude else {
+        guard
+            let latitude = parseShortcutCoordinate(latitude),
+            let longitude = parseShortcutCoordinate(longitude)
+        else {
             throw PlaceDriftShortcutError.missingCoordinate
         }
         guard
