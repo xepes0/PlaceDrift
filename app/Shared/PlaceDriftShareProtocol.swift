@@ -8,11 +8,13 @@ enum PlaceDriftShareProtocol {
         let version: Int
         let latitude: Double
         let longitude: Double
+        let source: String?
 
-        init(latitude: Double, longitude: Double) {
+        init(latitude: Double, longitude: Double, source: String? = nil) {
             self.version = PlaceDriftShareProtocol.version
             self.latitude = latitude
             self.longitude = longitude
+            self.source = source
         }
     }
 }
