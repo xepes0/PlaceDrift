@@ -4,6 +4,7 @@ struct PlaceDriftAppView: View {
     @ObservedObject var controller: CoreDeviceController
     @StateObject private var transportMonitor = TransportHealthMonitor()
     @StateObject private var permissionRequester = InitialPermissionRequester()
+    @StateObject private var mapRegionController = MapRegionController()
 
     @State private var latitude = "34.052235"
     @State private var longitude = "-118.243683"
@@ -151,7 +152,30 @@ struct PlaceDriftAppView: View {
                 }
 
                 Section("Shortcuts") {
-                    Text("You can pass a Shortcuts Location directly to PlaceDrift, pass latitude and longitude, or restore the real location.")
+                    Text("Build 11 adds a new one-field coordinate action to avoid the cached two-parameter Shortcuts schema. Pass one value such as 22.293882,114.174130.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Map region (experimental)") {
+                    LabeledContent("GeoServices country", value: mapRegionController.currentCountryCode)
+                    LabeledContent("Region layer", value: NSLocalizedString(mapRegionController.status, comment: "Map region experimental status"))
+
+                    Button("Apply US GeoServices region") {
+                        mapRegionController.applyUSRegion()
+                    }
+
+                    Button("Restore saved GeoServices region", role: .destructive) {
+                        mapRegionController.restoreSavedRegion()
+                    }
+
+                    if let error = mapRegionController.lastError {
+                        Text(error)
+                            .foregroundStyle(.red)
+                            .font(.footnote)
+                    }
+
+                    Text("This layer is separate from DVT LocationSimulation. It writes GeoServices' DeviceCountryCodeSourced value and posts the country-change notification used by Maps. It is experimental: the screen reports the read-back value so we can tell whether iOS accepted the region change before judging the Apple Maps provider switch.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -171,6 +195,7 @@ struct PlaceDriftAppView: View {
         .onAppear {
             controller.refreshPairingState()
             transportMonitor.refresh()
+            mapRegionController.refresh()
             permissionRequester.requestIfNeeded()
         }
         .task {
