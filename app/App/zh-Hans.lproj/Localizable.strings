@@ -57,6 +57,7 @@
 "Pair PlaceDrift with This iPhone" = "将 PlaceDrift 与此 iPhone 配对";
 "Open PlaceDrift and begin CoreDevice RemotePairing." = "打开 PlaceDrift 并开始 CoreDevice RemotePairing 配对。";
 "The selected location has no coordinates." = "所选位置没有可用坐标。";
+"No coordinates were received from Shortcuts." = "没有从快捷指令收到坐标。请检查上一步解析结果。";
 
 "Runtime requirement" = "运行要求";
 "Enable loopback-address 10.7.0.1 in the active TUN configuration. Tested working: LocalDevVPN, Clash Mi, Clash, and Karing. Loon and Surge currently fail the RemotePairing protocol check in the tested configurations; Egern is pending verification. PlaceDrift does not start a VPN." = "请在当前 TUN 配置中启用 loopback-address 10.7.0.1。已实测可用：LocalDevVPN、Clash Mi、Clash、Karing。Loon 与 Surge 在当前实测配置下无法通过 RemotePairing 协议检测；Egern 待测试。PlaceDrift 本身不会启动 VPN。";
