@@ -29,6 +29,8 @@
 "Stopped" = "已停止";
 "Background" = "后台保持";
 "Active" = "已启用";
+"Map parser" = "地图解析器";
+"Local only" = "仅本地";
 "Requesting Always Location…" = "正在请求“始终”定位权限…";
 "Needs Always Location" = "需要“始终”定位权限";
 "Location permission denied" = "定位权限已拒绝";
@@ -36,7 +38,7 @@
 "Location Services disabled" = "定位服务已关闭";
 "Background keep-alive failed" = "后台保持启动失败";
 "Ready for map sharing" = "已准备接收地图分享";
-"Share a place from Apple Maps, Amap, or Baidu Maps to PlaceDrift. The shared location is sent directly to the running CoreDevice session; Shortcuts are not required." = "可从 Apple 地图、高德地图或百度地图分享地点到 PlaceDrift。分享的位置会直接发送给正在运行的 CoreDevice 会话，不需要经过快捷指令。";
+"Share a place from Apple Maps, Amap, or Baidu Maps to PlaceDrift. Coordinate parsing is performed locally on this iPhone and does not use the WLOC Worker." = "可从 Apple 地图、高德地图或百度地图分享地点到 PlaceDrift。坐标解析全部在本机完成，不再使用 WLOC Worker。";
 "To keep PlaceDrift available in the background without the blue location pill, set Location access for PlaceDrift to Always in Settings." = "要让 PlaceDrift 在后台保持可用并避免蓝色定位提示，请在“设置”中把 PlaceDrift 的定位权限设为“始终”。";
 
 "Location" = "位置";
@@ -48,7 +50,7 @@
 "Map sharing updates these coordinates automatically." = "从地图分享位置后，这里的经纬度会自动更新。";
 
 "Shortcuts" = "快捷指令";
-"Build 11 adds a new one-field coordinate action to avoid the cached two-parameter Shortcuts schema. Pass one value such as 22.293882,114.174130." = "Build 11 新增了一个单输入框的坐标动作，用来绕过旧版双参数快捷指令的缓存问题。只需传入类似 22.293882,114.174130 的一个值。";
+"Use the one-field coordinate-text action to avoid the cached two-parameter Shortcuts schema. Pass one value such as 22.293882,114.174130." = "请使用单输入框的“坐标文本”动作，以绕过旧版双参数快捷指令的缓存问题。只需传入类似 22.293882,114.174130 的一个值。";
 "Set PlaceDrift Location" = "设置 PlaceDrift 位置";
 "Send a Shortcuts location directly to PlaceDrift and start LocationSimulation." = "将快捷指令中的“位置”直接发送到 PlaceDrift，并启动模拟定位。";
 "Set PlaceDrift Coordinates" = "设置 PlaceDrift 坐标";
