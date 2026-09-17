@@ -2,7 +2,7 @@ name: Validate PlaceDrift
 
 on:
   push:
-    branches: [placedrift-mainline]
+    branches: [placedrift-mainline, feature/maps-share-background]
   pull_request:
 
 concurrency:
