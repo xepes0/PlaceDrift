@@ -5,6 +5,8 @@
 #import <notify.h>
 #import <objc/message.h>
 #import <objc/runtime.h>
+#import <stdio.h>
+#import <string.h>
 
 static void placedrift_copy_string(NSString *value, char *buffer, size_t length) {
     if (!buffer || length == 0) return;
