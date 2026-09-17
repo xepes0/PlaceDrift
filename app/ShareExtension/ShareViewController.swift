@@ -139,8 +139,6 @@ final class ShareViewController: UIViewController {
     }
 
     private func resolve(_ input: SharedMapInput) {
-        // Build 12 is fully local. No Worker, server, API, or Cloudflare dependency
-        // participates in map-coordinate extraction.
         for text in input.texts {
             if let coordinate = MapShareCoordinateParser.parse(text: text, providerHint: .unknown, allowBare: false) {
                 send(coordinate, source: "Local direct parser")
@@ -154,10 +152,6 @@ final class ShareViewController: UIViewController {
             }
         }
 
-        // The old Worker accepted the complete share payload. Keep that useful
-        // behavior locally by parsing the combined attachment text before network
-        // redirect/WebKit resolution. Bare pairs are only considered at this final
-        // text stage so ordinary map URLs keep their provider-specific conversions.
         let combined = input.combinedText
         if !combined.isEmpty,
            let coordinate = MapShareCoordinateParser.parse(
@@ -260,6 +254,8 @@ final class ShareViewController: UIViewController {
     @objc private func closeTapped() {
         resolver = nil
         baiduResolver = nil
+        bridgeClient?.cancel()
+        bridgeClient = nil
         extensionContext?.completeRequest(returningItems: nil)
     }
 }
@@ -271,38 +267,72 @@ private final class ShareBridgeClient {
     private var finished = false
     private var didSend = false
     private var source = "Unknown"
+    private var coordinate: MapShareCoordinate?
+    private var portIndex = 0
 
     func send(coordinate: MapShareCoordinate, source: String, completion: @escaping (Bool) -> Void) {
-        guard let port = NWEndpoint.Port(rawValue: PlaceDriftShareProtocol.port) else {
-            completion(false)
-            return
-        }
-
         self.completion = completion
         self.source = source
-        let connection = NWConnection(host: "127.0.0.1", port: port, using: .tcp)
-        self.connection = connection
+        self.coordinate = coordinate
+        self.finished = false
+        self.didSend = false
+        self.portIndex = 0
 
-        connection.stateUpdateHandler = { [weak self] state in
-            guard let self else { return }
-            switch state {
-            case .ready:
-                self.sendPayload(coordinate, over: connection)
-            case .failed:
-                self.finish(false)
-            default:
-                break
-            }
+        queue.async { [weak self] in
+            self?.tryNextPort()
         }
-
-        connection.start(queue: queue)
-        queue.asyncAfter(deadline: .now() + 3) { [weak self] in
+        queue.asyncAfter(deadline: .now() + 6) { [weak self] in
             self?.finish(false)
         }
     }
 
+    func cancel() {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.finished = true
+            self.connection?.stateUpdateHandler = nil
+            self.connection?.cancel()
+            self.connection = nil
+            self.completion = nil
+        }
+    }
+
+    private func tryNextPort() {
+        guard !finished, let coordinate else { return }
+        guard portIndex < PlaceDriftShareProtocol.ports.count else {
+            finish(false)
+            return
+        }
+
+        let rawPort = PlaceDriftShareProtocol.ports[portIndex]
+        guard let port = NWEndpoint.Port(rawValue: rawPort) else {
+            portIndex += 1
+            tryNextPort()
+            return
+        }
+
+        didSend = false
+        let parameters = NWParameters.tcp
+        parameters.requiredInterfaceType = .loopback
+        let connection = NWConnection(host: "127.0.0.1", port: port, using: parameters)
+        self.connection = connection
+
+        connection.stateUpdateHandler = { [weak self, weak connection] state in
+            guard let self, let connection, self.connection === connection, !self.finished else { return }
+            switch state {
+            case .ready:
+                self.sendPayload(coordinate, over: connection)
+            case .waiting, .failed:
+                self.advance(from: connection)
+            default:
+                break
+            }
+        }
+        connection.start(queue: queue)
+    }
+
     private func sendPayload(_ coordinate: MapShareCoordinate, over connection: NWConnection) {
-        guard !didSend else { return }
+        guard !didSend, !finished else { return }
         didSend = true
 
         guard var data = try? JSONEncoder().encode(
@@ -317,10 +347,10 @@ private final class ShareBridgeClient {
         }
         data.append(0x0A)
 
-        connection.send(content: data, completion: .contentProcessed { [weak self] error in
-            guard let self else { return }
+        connection.send(content: data, completion: .contentProcessed { [weak self, weak connection] error in
+            guard let self, let connection, self.connection === connection, !self.finished else { return }
             guard error == nil else {
-                self.finish(false)
+                self.advance(from: connection)
                 return
             }
             self.receiveAcknowledgement(from: connection)
@@ -328,24 +358,35 @@ private final class ShareBridgeClient {
     }
 
     private func receiveAcknowledgement(from connection: NWConnection) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 32) { [weak self] data, _, _, error in
-            guard let self else { return }
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 32) { [weak self, weak connection] data, _, _, error in
+            guard let self, let connection, self.connection === connection, !self.finished else { return }
             guard
                 error == nil,
                 let data,
                 let value = String(data: data, encoding: .utf8),
                 value.hasPrefix("OK")
             else {
-                self.finish(false)
+                self.advance(from: connection)
                 return
             }
             self.finish(true)
         }
     }
 
+    private func advance(from connection: NWConnection) {
+        guard self.connection === connection, !finished else { return }
+        connection.stateUpdateHandler = nil
+        connection.cancel()
+        self.connection = nil
+        didSend = false
+        portIndex += 1
+        tryNextPort()
+    }
+
     private func finish(_ success: Bool) {
         guard !finished else { return }
         finished = true
+        connection?.stateUpdateHandler = nil
         connection?.cancel()
         connection = nil
         let completion = completion
