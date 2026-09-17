@@ -4,35 +4,47 @@ import Network
 final class PlaceDriftShareBridge {
     var onLocation: ((Double, Double) -> Void)?
     var onReadyChange: ((Bool) -> Void)?
+    var onErrorChange: ((String?) -> Void)?
 
     private let queue = DispatchQueue(label: "com.xepes.placedrift.share-bridge")
     private var listener: NWListener?
+    private var retryWorkItem: DispatchWorkItem?
+    private var wantsRunning = false
 
     func start() {
         queue.async { [weak self] in
-            self?.startOnQueue()
+            guard let self else { return }
+            self.wantsRunning = true
+            self.retryWorkItem?.cancel()
+            self.retryWorkItem = nil
+            self.startOnQueue()
         }
     }
 
     func stop() {
         queue.async { [weak self] in
             guard let self else { return }
+            self.wantsRunning = false
+            self.retryWorkItem?.cancel()
+            self.retryWorkItem = nil
             self.listener?.cancel()
             self.listener = nil
             self.publishReady(false)
+            self.publishError(nil)
         }
     }
 
     private func startOnQueue() {
-        guard listener == nil else { return }
+        guard wantsRunning, listener == nil else { return }
         guard let port = NWEndpoint.Port(rawValue: PlaceDriftShareProtocol.port) else {
             publishReady(false)
+            publishError("Invalid share bridge port.")
             return
         }
 
         do {
             let parameters = NWParameters.tcp
-            parameters.allowLocalEndpointReuse = true
+            parameters.requiredInterfaceType = .loopback
             let listener = try NWListener(using: parameters, on: port)
             listener.newConnectionHandler = { [weak self] connection in
                 self?.accept(connection)
@@ -41,12 +53,30 @@ final class PlaceDriftShareBridge {
                 guard let self else { return }
                 switch state {
                 case .ready:
+                    self.publishError(nil)
                     self.publishReady(true)
-                case .failed, .cancelled:
+
+                case .waiting(let error):
+                    self.publishReady(false)
+                    self.publishError("Loopback listener waiting: \(error)")
+
+                case .failed(let error):
                     if self.listener === listener {
                         self.listener = nil
                     }
                     self.publishReady(false)
+                    self.publishError("Loopback listener failed: \(error)")
+                    self.scheduleRetry()
+
+                case .cancelled:
+                    if self.listener === listener {
+                        self.listener = nil
+                    }
+                    self.publishReady(false)
+                    if self.wantsRunning {
+                        self.scheduleRetry()
+                    }
+
                 default:
                     break
                 }
@@ -56,7 +86,20 @@ final class PlaceDriftShareBridge {
         } catch {
             listener = nil
             publishReady(false)
+            publishError("Could not create loopback listener: \(error.localizedDescription)")
+            scheduleRetry()
         }
+    }
+
+    private func scheduleRetry() {
+        guard wantsRunning, retryWorkItem == nil else { return }
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.retryWorkItem = nil
+            self.startOnQueue()
+        }
+        retryWorkItem = item
+        queue.asyncAfter(deadline: .now() + 1.5, execute: item)
     }
 
     private func accept(_ connection: NWConnection) {
@@ -127,6 +170,12 @@ final class PlaceDriftShareBridge {
     private func publishReady(_ ready: Bool) {
         DispatchQueue.main.async { [weak self] in
             self?.onReadyChange?(ready)
+        }
+    }
+
+    private func publishError(_ error: String?) {
+        DispatchQueue.main.async { [weak self] in
+            self?.onErrorChange?(error)
         }
     }
 }
