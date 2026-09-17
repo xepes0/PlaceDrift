@@ -16,28 +16,81 @@ private enum PlaceDriftShortcutError: LocalizedError {
     }
 }
 
-private func parseShortcutCoordinate(_ value: String?) -> Double? {
-    guard var text = value?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
-        return nil
-    }
-
-    // Dictionary values returned by WLOC /api/parse may reach App Intents through
-    // Shortcuts as text rather than as a native Double. Parse them inside PlaceDrift
-    // instead of asking Shortcuts to coerce the magic variable into a Double first.
-    text = text
+private func normalizeShortcutText(_ value: String) -> String {
+    value
+        .trimmingCharacters(in: .whitespacesAndNewlines)
         .replacingOccurrences(of: "−", with: "-")
         .replacingOccurrences(of: "＋", with: "+")
         .replacingOccurrences(of: "，", with: ",")
+}
+
+private func parseShortcutCoordinate(_ value: String?) -> Double? {
+    guard let value else { return nil }
+    let text = normalizeShortcutText(value)
+    guard !text.isEmpty else { return nil }
 
     if let direct = Double(text) {
         return direct
     }
 
-    // Also tolerate a simple localized decimal comma when there is no decimal point.
     if !text.contains("."), text.filter({ $0 == "," }).count == 1 {
         return Double(text.replacingOccurrences(of: ",", with: "."))
     }
     return nil
+}
+
+private func parseCoordinatePair(_ rawValue: String) -> (Double, Double)? {
+    let text = normalizeShortcutText(rawValue)
+    guard !text.isEmpty else { return nil }
+
+    if let url = URL(string: text),
+       url.scheme?.lowercased() == "placedrift",
+       let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+       let latText = components.queryItems?.first(where: { $0.name == "lat" })?.value,
+       let lonText = components.queryItems?.first(where: { $0.name == "lon" })?.value,
+       let latitude = Double(latText),
+       let longitude = Double(lonText) {
+        return (latitude, longitude)
+    }
+
+    if let data = text.data(using: .utf8),
+       let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+        func number(_ key: String) -> Double? {
+            if let value = object[key] as? NSNumber { return value.doubleValue }
+            if let value = object[key] as? String { return Double(normalizeShortcutText(value)) }
+            return nil
+        }
+        if let latitude = number("lat") ?? number("latitude"),
+           let longitude = number("lon") ?? number("lng") ?? number("longitude") {
+            return (latitude, longitude)
+        }
+    }
+
+    let pattern = #"(-?\d{1,2}(?:\.\d+)?)\s*[,;|\s]\s*(-?\d{1,3}(?:\.\d+)?)"#
+    if let regex = try? NSRegularExpression(pattern: pattern),
+       let match = regex.firstMatch(
+        in: text,
+        range: NSRange(text.startIndex..<text.endIndex, in: text)
+       ),
+       let latRange = Range(match.range(at: 1), in: text),
+       let lonRange = Range(match.range(at: 2), in: text),
+       let latitude = Double(text[latRange]),
+       let longitude = Double(text[lonRange]) {
+        return (latitude, longitude)
+    }
+
+    return nil
+}
+
+private func validateCoordinatePair(_ latitude: Double, _ longitude: Double) throws {
+    guard
+        latitude.isFinite,
+        longitude.isFinite,
+        (-90.0...90.0).contains(latitude),
+        (-180.0...180.0).contains(longitude)
+    else {
+        throw PlaceDriftShortcutError.invalidCoordinates
+    }
 }
 
 struct SetPlaceDriftLocationIntent: AppIntent {
@@ -52,12 +105,7 @@ struct SetPlaceDriftLocationIntent: AppIntent {
         guard let coordinate = location.location?.coordinate else {
             throw PlaceDriftShortcutError.missingCoordinate
         }
-        guard
-            (-90.0...90.0).contains(coordinate.latitude),
-            (-180.0...180.0).contains(coordinate.longitude)
-        else {
-            throw PlaceDriftShortcutError.invalidCoordinates
-        }
+        try validateCoordinatePair(coordinate.latitude, coordinate.longitude)
 
         await PlaceDriftShortcutRouter.setLocation(
             latitude: coordinate.latitude,
@@ -72,11 +120,6 @@ struct SetPlaceDriftCoordinatesIntent: AppIntent {
     static var description = IntentDescription("Pass latitude and longitude to PlaceDrift and start LocationSimulation.")
     static var openAppWhenRun: Bool = true
 
-    // WLOC's proven Shortcut path takes lat/lon from a JSON dictionary and inserts
-    // them into a URL as text. Using Double here made App Intents perform its own
-    // runtime type resolution; when that failed, Shortcuts treated the parameter as
-    // missing and displayed an interactive latitude/longitude prompt. Accept text and
-    // parse it ourselves so dictionary magic variables arrive unchanged.
     @Parameter(title: "Latitude")
     var latitude: String?
 
@@ -90,13 +133,29 @@ struct SetPlaceDriftCoordinatesIntent: AppIntent {
         else {
             throw PlaceDriftShortcutError.missingCoordinate
         }
-        guard
-            (-90.0...90.0).contains(latitude),
-            (-180.0...180.0).contains(longitude)
-        else {
-            throw PlaceDriftShortcutError.invalidCoordinates
-        }
+        try validateCoordinatePair(latitude, longitude)
 
+        await PlaceDriftShortcutRouter.setLocation(latitude: latitude, longitude: longitude)
+        return .result()
+    }
+}
+
+// Build 11 intentionally uses a brand-new AppIntent type and only one text field.
+// This avoids both the cached schema of the older two-parameter action and Shortcuts'
+// unreliable coercion of JSON dictionary values into two independent parameters.
+struct SetPlaceDriftCoordinateTextIntent: AppIntent {
+    static var title: LocalizedStringResource = "Set PlaceDrift Coordinate Text"
+    static var description = IntentDescription("Pass one coordinate pair such as 22.293882,114.174130 to PlaceDrift.")
+    static var openAppWhenRun: Bool = true
+
+    @Parameter(title: "Coordinates")
+    var coordinates: String
+
+    func perform() async throws -> some IntentResult {
+        guard let (latitude, longitude) = parseCoordinatePair(coordinates) else {
+            throw PlaceDriftShortcutError.missingCoordinate
+        }
+        try validateCoordinatePair(latitude, longitude)
         await PlaceDriftShortcutRouter.setLocation(latitude: latitude, longitude: longitude)
         return .result()
     }
@@ -135,6 +194,17 @@ struct PlaceDriftAppShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Set PlaceDrift Location",
             systemImageName: "location.fill"
+        )
+
+        AppShortcut(
+            intent: SetPlaceDriftCoordinateTextIntent(),
+            phrases: [
+                "Set coordinate text with \(.applicationName)",
+                "Use \(.applicationName) coordinate text",
+                "用 \(.applicationName) 设置坐标文本"
+            ],
+            shortTitle: "Set PlaceDrift Coordinate Text",
+            systemImageName: "text.badge.checkmark"
         )
 
         AppShortcut(
