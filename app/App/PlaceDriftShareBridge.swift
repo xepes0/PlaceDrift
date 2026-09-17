@@ -4,12 +4,15 @@ import Network
 final class PlaceDriftShareBridge {
     var onLocation: ((Double, Double) -> Void)?
     var onReadyChange: ((Bool) -> Void)?
+    var onPortChange: ((UInt16?) -> Void)?
     var onErrorChange: ((String?) -> Void)?
 
     private let queue = DispatchQueue(label: "com.xepes.placedrift.share-bridge")
     private var listener: NWListener?
     private var retryWorkItem: DispatchWorkItem?
     private var wantsRunning = false
+    private var portIndex = 0
+    private var lastFailure: String?
 
     func start() {
         queue.async { [weak self] in
@@ -17,7 +20,11 @@ final class PlaceDriftShareBridge {
             self.wantsRunning = true
             self.retryWorkItem?.cancel()
             self.retryWorkItem = nil
-            self.startOnQueue()
+            if self.listener == nil {
+                self.portIndex = 0
+                self.lastFailure = nil
+                self.startOnQueue()
+            }
         }
     }
 
@@ -27,18 +34,34 @@ final class PlaceDriftShareBridge {
             self.wantsRunning = false
             self.retryWorkItem?.cancel()
             self.retryWorkItem = nil
+            self.listener?.stateUpdateHandler = nil
             self.listener?.cancel()
             self.listener = nil
+            self.portIndex = 0
+            self.lastFailure = nil
             self.publishReady(false)
+            self.publishPort(nil)
             self.publishError(nil)
         }
     }
 
     private func startOnQueue() {
         guard wantsRunning, listener == nil else { return }
-        guard let port = NWEndpoint.Port(rawValue: PlaceDriftShareProtocol.port) else {
+
+        guard portIndex < PlaceDriftShareProtocol.ports.count else {
             publishReady(false)
-            publishError("Invalid share bridge port.")
+            publishPort(nil)
+            let detail = lastFailure ?? "unknown listener error"
+            publishError("All loopback share ports are unavailable. Last error: \(detail)")
+            scheduleFullRetry()
+            return
+        }
+
+        let candidate = PlaceDriftShareProtocol.ports[portIndex]
+        guard let port = NWEndpoint.Port(rawValue: candidate) else {
+            lastFailure = "invalid port \(candidate)"
+            portIndex += 1
+            startOnQueue()
             return
         }
 
@@ -50,31 +73,27 @@ final class PlaceDriftShareBridge {
                 self?.accept(connection)
             }
             listener.stateUpdateHandler = { [weak self, weak listener] state in
-                guard let self else { return }
+                guard let self, let listener, self.listener === listener else { return }
                 switch state {
                 case .ready:
+                    self.lastFailure = nil
                     self.publishError(nil)
+                    self.publishPort(candidate)
                     self.publishReady(true)
 
                 case .waiting(let error):
-                    self.publishReady(false)
-                    self.publishError("Loopback listener waiting: \(error)")
+                    self.advanceAfterFailure(listener: listener, port: candidate, error: error)
 
                 case .failed(let error):
-                    if self.listener === listener {
-                        self.listener = nil
-                    }
-                    self.publishReady(false)
-                    self.publishError("Loopback listener failed: \(error)")
-                    self.scheduleRetry()
+                    self.advanceAfterFailure(listener: listener, port: candidate, error: error)
 
                 case .cancelled:
-                    if self.listener === listener {
-                        self.listener = nil
-                    }
+                    self.listener = nil
                     self.publishReady(false)
+                    self.publishPort(nil)
                     if self.wantsRunning {
-                        self.scheduleRetry()
+                        self.portIndex += 1
+                        self.startOnQueue()
                     }
 
                 default:
@@ -84,22 +103,39 @@ final class PlaceDriftShareBridge {
             self.listener = listener
             listener.start(queue: queue)
         } catch {
-            listener = nil
+            lastFailure = "port \(candidate): \(error.localizedDescription)"
             publishReady(false)
-            publishError("Could not create loopback listener: \(error.localizedDescription)")
-            scheduleRetry()
+            publishPort(nil)
+            publishError(lastFailure)
+            portIndex += 1
+            startOnQueue()
         }
     }
 
-    private func scheduleRetry() {
+    private func advanceAfterFailure(listener: NWListener, port: UInt16, error: NWError) {
+        guard self.listener === listener else { return }
+        lastFailure = "port \(port): \(error)"
+        publishReady(false)
+        publishPort(nil)
+        publishError(lastFailure)
+
+        listener.stateUpdateHandler = nil
+        listener.cancel()
+        self.listener = nil
+        portIndex += 1
+        startOnQueue()
+    }
+
+    private func scheduleFullRetry() {
         guard wantsRunning, retryWorkItem == nil else { return }
         let item = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.retryWorkItem = nil
+            self.portIndex = 0
             self.startOnQueue()
         }
         retryWorkItem = item
-        queue.asyncAfter(deadline: .now() + 1.5, execute: item)
+        queue.asyncAfter(deadline: .now() + 2.0, execute: item)
     }
 
     private func accept(_ connection: NWConnection) {
@@ -170,6 +206,12 @@ final class PlaceDriftShareBridge {
     private func publishReady(_ ready: Bool) {
         DispatchQueue.main.async { [weak self] in
             self?.onReadyChange?(ready)
+        }
+    }
+
+    private func publishPort(_ port: UInt16?) {
+        DispatchQueue.main.async { [weak self] in
+            self?.onPortChange?(port)
         }
     }
 
