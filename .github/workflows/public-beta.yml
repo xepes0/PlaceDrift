@@ -1,0 +1,50 @@
+name: Publish PlaceDrift Public Beta 1
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  publish-beta:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check existing release
+        id: release_check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.2.1-beta.1 >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install XcodeGen
+        if: steps.release_check.outputs.exists != 'true'
+        run: brew install xcodegen
+
+      - name: Build unsigned IPA
+        if: steps.release_check.outputs.exists != 'true'
+        run: bash scripts/build-app.sh
+
+      - name: Prepare release asset
+        if: steps.release_check.outputs.exists != 'true'
+        run: |
+          cp .build/artifacts/PlaceDrift-unsigned.ipa PlaceDrift-0.2.1-Public-Beta-1-unsigned.ipa
+
+      - name: Create prerelease
+        if: steps.release_check.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v0.2.1-beta.1 \
+            PlaceDrift-0.2.1-Public-Beta-1-unsigned.ipa \
+            --target "$GITHUB_SHA" \
+            --title "PlaceDrift 0.2.1 Public Beta 1" \
+            --notes-file docs/PUBLIC_BETA_1.md \
+            --prerelease
