@@ -10,6 +10,7 @@ final class ShareViewController: UIViewController {
 
     private var didStart = false
     private var resolver: MapShareRedirectResolver?
+    private var baiduResolver: BaiduWebViewCoordinateResolver?
     private var bridgeClient: ShareBridgeClient?
 
     override func viewDidLoad() {
@@ -139,12 +140,33 @@ final class ShareViewController: UIViewController {
             return
         }
 
+        let provider = MapShareCoordinateParser.provider(for: url)
         statusLabel.text = NSLocalizedString("Resolving map link…", comment: "Share extension resolving status")
         let resolver = MapShareRedirectResolver()
         self.resolver = resolver
         resolver.resolve(url) { [weak self] coordinate in
             guard let self else { return }
             self.resolver = nil
+            if let coordinate {
+                self.send(coordinate)
+                return
+            }
+
+            if provider == .baidu {
+                self.resolveBaiduWithWebView(url)
+            } else {
+                self.showError(NSLocalizedString("Could not extract coordinates from this map link.", comment: "Share extension coordinate failure"))
+            }
+        }
+    }
+
+    private func resolveBaiduWithWebView(_ url: URL) {
+        statusLabel.text = NSLocalizedString("Resolving Baidu map page…", comment: "Baidu WebKit fallback status")
+        let resolver = BaiduWebViewCoordinateResolver()
+        baiduResolver = resolver
+        resolver.resolve(url, in: view) { [weak self] coordinate in
+            guard let self else { return }
+            self.baiduResolver = nil
             guard let coordinate else {
                 self.showError(NSLocalizedString("Could not extract coordinates from this map link.", comment: "Share extension coordinate failure"))
                 return
