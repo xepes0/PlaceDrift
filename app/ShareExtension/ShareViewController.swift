@@ -10,6 +10,7 @@ final class ShareViewController: UIViewController {
 
     private var didStart = false
     private var resolver: MapShareRedirectResolver?
+    private var workerResolver: WLOCWorkerCoordinateResolver?
     private var baiduResolver: BaiduWebViewCoordinateResolver?
     private var bridgeClient: ShareBridgeClient?
 
@@ -52,95 +53,135 @@ final class ShareViewController: UIViewController {
     }
 
     private func beginImport() {
-        let providers = (extensionContext?.inputItems as? [NSExtensionItem])?
-            .flatMap { $0.attachments ?? [] } ?? []
-
-        loadURL(from: providers, index: 0) { [weak self] url in
+        collectSharedInput { [weak self] input in
             guard let self else { return }
-            guard let url else {
+            guard !input.urls.isEmpty || !input.texts.isEmpty else {
                 self.showError(NSLocalizedString("No supported map link was found in the shared item.", comment: "Share extension missing URL"))
                 return
             }
-            self.resolve(url)
+            self.resolve(input)
         }
     }
 
-    private func loadURL(from providers: [NSItemProvider], index: Int, completion: @escaping (URL?) -> Void) {
-        guard index < providers.count else {
-            loadTextURL(from: providers, index: 0, completion: completion)
-            return
-        }
+    private struct SharedMapInput {
+        let urls: [URL]
+        let texts: [String]
 
-        let provider = providers[index]
-        let type = UTType.url.identifier
-        guard provider.hasItemConformingToTypeIdentifier(type) else {
-            loadURL(from: providers, index: index + 1, completion: completion)
-            return
+        var workerText: String {
+            var parts = texts
+            parts.append(contentsOf: urls.map(\.absoluteString))
+            var seen = Set<String>()
+            return parts
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty && seen.insert($0).inserted }
+                .joined(separator: "\n")
         }
+    }
 
-        provider.loadItem(forTypeIdentifier: type, options: nil) { [weak self] item, _ in
-            let url: URL?
-            if let value = item as? URL {
-                url = value
-            } else if let value = item as? NSURL {
-                url = value as URL
-            } else if let value = item as? String {
-                url = URL(string: value)
-            } else {
-                url = nil
+    private func collectSharedInput(completion: @escaping (SharedMapInput) -> Void) {
+        let items = (extensionContext?.inputItems as? [NSExtensionItem]) ?? []
+        let providers = items.flatMap { $0.attachments ?? [] }
+        var urls: [URL] = []
+        var texts: [String] = items.compactMap { $0.attributedContentText?.string }
+        let lock = NSLock()
+        let group = DispatchGroup()
+
+        for provider in providers {
+            if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
+                group.enter()
+                provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { item, _ in
+                    defer { group.leave() }
+                    let url: URL?
+                    if let value = item as? URL {
+                        url = value
+                    } else if let value = item as? NSURL {
+                        url = value as URL
+                    } else if let value = item as? String {
+                        url = URL(string: value)
+                    } else {
+                        url = nil
+                    }
+                    if let url {
+                        lock.lock()
+                        urls.append(url)
+                        lock.unlock()
+                    }
+                }
             }
 
-            DispatchQueue.main.async {
-                guard let self else { return }
-                if let url {
-                    completion(url)
-                } else {
-                    self.loadURL(from: providers, index: index + 1, completion: completion)
+            if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                group.enter()
+                provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { item, _ in
+                    defer { group.leave() }
+                    let text: String?
+                    if let value = item as? String {
+                        text = value
+                    } else if let value = item as? NSAttributedString {
+                        text = value.string
+                    } else {
+                        text = nil
+                    }
+                    if let text, !text.isEmpty {
+                        lock.lock()
+                        texts.append(text)
+                        lock.unlock()
+                    }
                 }
             }
         }
+
+        group.notify(queue: .main) {
+            var seenURLs = Set<String>()
+            let uniqueURLs = urls.filter { seenURLs.insert($0.absoluteString).inserted }
+            var seenTexts = Set<String>()
+            let uniqueTexts = texts.filter { seenTexts.insert($0).inserted }
+            completion(SharedMapInput(urls: uniqueURLs, texts: uniqueTexts))
+        }
     }
 
-    private func loadTextURL(from providers: [NSItemProvider], index: Int, completion: @escaping (URL?) -> Void) {
-        guard index < providers.count else {
-            completion(nil)
-            return
-        }
-
-        let provider = providers[index]
-        let type = UTType.plainText.identifier
-        guard provider.hasItemConformingToTypeIdentifier(type) else {
-            loadTextURL(from: providers, index: index + 1, completion: completion)
-            return
-        }
-
-        provider.loadItem(forTypeIdentifier: type, options: nil) { [weak self] item, _ in
-            let text = item as? String
-            let url = text.flatMap(Self.firstURL(in:))
-            DispatchQueue.main.async {
-                guard let self else { return }
-                if let url {
-                    completion(url)
-                } else {
-                    self.loadTextURL(from: providers, index: index + 1, completion: completion)
-                }
+    private func resolve(_ input: SharedMapInput) {
+        // WLOC Shortcuts passes the complete shared text to /api/parse. Check all
+        // attachments locally first instead of discarding the richer text payload.
+        for text in input.texts {
+            if let coordinate = MapShareCoordinateParser.parse(text: text, providerHint: .unknown, allowBare: false) {
+                send(coordinate)
+                return
             }
         }
-    }
+        for url in input.urls {
+            if let coordinate = MapShareCoordinateParser.parse(url: url) {
+                send(coordinate)
+                return
+            }
+        }
 
-    private static func firstURL(in text: String) -> URL? {
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
-        let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        return detector.firstMatch(in: text, options: [], range: range)?.url
-    }
-
-    private func resolve(_ url: URL) {
-        if let coordinate = MapShareCoordinateParser.parse(url: url) {
-            send(coordinate)
+        let raw = input.workerText
+        if !raw.isEmpty {
+            statusLabel.text = NSLocalizedString("Resolving with WLOC parser…", comment: "WLOC worker fallback status")
+            let worker = WLOCWorkerCoordinateResolver()
+            workerResolver = worker
+            worker.resolve(rawSharedInput: raw) { [weak self] coordinate in
+                guard let self else { return }
+                self.workerResolver = nil
+                if let coordinate {
+                    self.send(coordinate)
+                    return
+                }
+                self.resolveRedirects(input.urls, index: 0, originalInput: input)
+            }
             return
         }
 
-        let provider = MapShareCoordinateParser.provider(for: url)
+        resolveRedirects(input.urls, index: 0, originalInput: input)
+    }
+
+    private func resolveRedirects(_ urls: [URL], index: Int, originalInput: SharedMapInput) {
+        guard index < urls.count else {
+            finishWithBaiduFallback(originalInput)
+            return
+        }
+
+        let url = urls[index]
         statusLabel.text = NSLocalizedString("Resolving map link…", comment: "Share extension resolving status")
         let resolver = MapShareRedirectResolver()
         self.resolver = resolver
@@ -149,15 +190,27 @@ final class ShareViewController: UIViewController {
             self.resolver = nil
             if let coordinate {
                 self.send(coordinate)
-                return
-            }
-
-            if provider == .baidu {
-                self.resolveBaiduWithWebView(url)
             } else {
-                self.showError(NSLocalizedString("Could not extract coordinates from this map link.", comment: "Share extension coordinate failure"))
+                self.resolveRedirects(urls, index: index + 1, originalInput: originalInput)
             }
         }
+    }
+
+    private func finishWithBaiduFallback(_ input: SharedMapInput) {
+        let baiduURL = input.urls.first { MapShareCoordinateParser.provider(for: $0) == .baidu }
+            ?? input.texts.compactMap(Self.firstURL(in:)).first { MapShareCoordinateParser.provider(for: $0) == .baidu }
+
+        if let baiduURL {
+            resolveBaiduWithWebView(baiduURL)
+        } else {
+            showError(NSLocalizedString("Could not extract coordinates from this map link.", comment: "Share extension coordinate failure"))
+        }
+    }
+
+    private static func firstURL(in text: String) -> URL? {
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        return detector.firstMatch(in: text, options: [], range: range)?.url
     }
 
     private func resolveBaiduWithWebView(_ url: URL) {
@@ -204,6 +257,7 @@ final class ShareViewController: UIViewController {
     }
 
     @objc private func closeTapped() {
+        workerResolver?.cancel()
         extensionContext?.completeRequest(returningItems: nil)
     }
 }
