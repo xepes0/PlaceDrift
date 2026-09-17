@@ -2,9 +2,12 @@
 "Close" = "关闭";
 "No supported map link was found in the shared item." = "分享内容中没有找到支持的地图链接。";
 "Resolving map link…" = "正在解析地图链接…";
-"Resolving with WLOC parser…" = "正在使用 WLOC 解析器…";
+"Resolving map link locally…" = "正在解析地图链接…";
 "Resolving Baidu map page…" = "正在解析百度地图页面…";
+"Resolving Baidu map page locally…" = "正在解析百度地图页面…";
 "Could not extract coordinates from this map link." = "无法从这个地图链接中提取坐标。";
+"Could not extract coordinates from this map link locally." = "无法从这个地图链接中提取坐标。";
 "Sending location to PlaceDrift…" = "正在把位置发送到 PlaceDrift…";
 "Location sent to PlaceDrift." = "位置已发送到 PlaceDrift。";
+"Location sent to PlaceDrift. Parser: %@" = "位置已发送到 PlaceDrift。";
 "PlaceDrift is not reachable. Open PlaceDrift once, enable Maps sharing, and allow Always Location access." = "无法连接 PlaceDrift。请先打开 PlaceDrift，启用“地图分享”，并允许“始终”使用位置。";
