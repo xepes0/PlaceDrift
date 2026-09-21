@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-PlaceDrift is a native CoreDevice location-control app. The current public-beta product path does not depend on browser/MITM experiments, WLOC Worker parsing, Shortcuts/App Intents, GeoServices region switching, or an embedded VPN.
+PlaceDrift is a native CoreDevice location-control app. The supported product path does not depend on browser/MITM experiments, WLOC Worker parsing, Shortcuts/App Intents, GeoServices region switching, or an embedded VPN.
 
 ```text
 Apple Maps / Amap / Baidu Maps
@@ -43,7 +43,7 @@ Physical-device testing has confirmed the current path with LocalDevVPN, Clash M
 
 ## User workflow
 
-The supported public-beta workflow is intentionally small:
+The supported workflow is intentionally small:
 
 ```text
 Choose a place in Apple Maps / Amap / Baidu Maps
