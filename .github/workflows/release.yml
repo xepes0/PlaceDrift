@@ -1,0 +1,63 @@
+name: Publish PlaceDrift release
+
+on:
+  push:
+    tags:
+      - v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify tag and source version
+        run: |
+          python3 - <<'PY'
+          import os
+          import plistlib
+          from pathlib import Path
+
+          tag = os.environ['GITHUB_REF_NAME']
+          assert tag == 'v1.0.0', tag
+          for path in (Path('app/App/Info.plist'), Path('app/ShareExtension/Info.plist')):
+              with path.open('rb') as file:
+                  info = plistlib.load(file)
+              assert info['CFBundleShortVersionString'] == tag[1:], path
+              assert info['CFBundleVersion'] == '17', path
+          PY
+      - name: Test Rust CoreDevice engine
+        working-directory: native/coredevice
+        run: cargo test --lib
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build unsigned IPA
+        run: bash scripts/build-app.sh
+      - name: Verify IPA and name release asset
+        run: |
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          artifact = Path('.build/artifacts/PlaceDrift-unsigned.ipa')
+          with ZipFile(artifact) as ipa:
+              app = plistlib.loads(ipa.read('Payload/PlaceDrift.app/Info.plist'))
+              share = plistlib.loads(ipa.read('Payload/PlaceDrift.app/PlugIns/PlaceDriftShare.appex/Info.plist'))
+          for info in (app, share):
+              assert info['CFBundleShortVersionString'] == '1.0.0'
+              assert info['CFBundleVersion'] == '17'
+          artifact.rename('.build/artifacts/PlaceDrift-1.0.0-unsigned.ipa')
+          PY
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            .build/artifacts/PlaceDrift-1.0.0-unsigned.ipa \
+            --verify-tag \
+            --title "PlaceDrift 1.0.0" \
+            --notes-file docs/releases/v1.0.0.md \
+            --latest
